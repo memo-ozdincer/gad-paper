@@ -49,14 +49,13 @@ to repo root `GAD_plus/`. Data CSVs live in `analysis_2026_04_29/`.
 
 ## Gaps others may find
 
-1. **`LITERATURE_REVIEW_AND_SYNTHESIS.tex` (3338 lines, 147 KB) has NO compiled PDF.** A large related-work/synthesis draft never built. High-value for the paper's intro/related-work — compile it (`pdflatex`) and review; it likely needs a figures pass.
-2. **`references/noisyTS.tex`** — the LMHE comparison paper source (Fig-3, 0–15 pm positioning). Related-work anchor; not yet folded into any report.
-3. **Split mismatch across reports.** The latest (05-16) is **test-287**; the 04-xx IRC_COMPREHENSIVE reports are **train-300**. Don't mix cells across the two — cite numbers only from 05-16 for the paper.
-4. **No single compiled "paper".** These are *reports*; the manuscript (abstract/intro/methods prose/discussion) is unwritten. `PAPER_READINESS_2026_05_16.md` has the section map.
-5. **Headline prose understates the result.** 05-16 TeX TL;DR says GAD wins IRC TOPO at high noise but underplays that GAD **also** wins raw TS-conv there (+17.4 pp @ 200 pm). Crossover table is in `gad-paper/README.md` / `PAPER_PACKAGE_2026_06_22.md`.
-6. **Orphan source line.** 05-16 §Sources still lists `runs/starting_geom_300/` (train-300, removed section) — scrub.
-7. **SCINE dropped** from the paper (high conv but IRC/TOPO ~0 above 10 pm). Latest SCINE writeup `SCINE_XTB_FINDINGS_2026_05_15.md` is MD-only, never compiled — leave as-is unless revisited.
-8. **Coordinate step resolved**, not a gap: Cartesian step + MW Eckart projection is canonical (`projection.py` `61119c2`); ≤0.35 pp effect on test-287, reported numbers stand. Full A/B: `FINDING_CART_VS_MW_STEP_2026_06_10.md`.
+1. **`references/noisyTS.tex`** — the LMHE comparison paper source (Fig-3, 0–15 pm positioning). Related-work anchor; not yet folded into any report.
+2. **Split mismatch across reports.** The latest (05-16) is **test-287**; the 04-xx IRC_COMPREHENSIVE reports are **train-300**. Don't mix cells across the two — cite numbers only from 05-16 for the paper.
+3. **No single compiled "paper".** These are *reports*; the manuscript (abstract/intro/methods prose/discussion) is unwritten. `PAPER_READINESS_2026_05_16.md` has the section map.
+4. **Headline prose understates the result.** 05-16 TeX TL;DR says GAD wins IRC TOPO at high noise but underplays that GAD **also** wins raw TS-conv there (+17.4 pp @ 200 pm). Crossover table is in `PAPER_PACKAGE_2026_06_22.md`.
+5. **Orphan source line.** 05-16 §Sources still lists `runs/starting_geom_300/` (train-300, removed section) — scrub.
+6. **SCINE dropped** from the paper (high conv but IRC/TOPO ~0 above 10 pm). Latest SCINE writeup `SCINE_XTB_FINDINGS_2026_05_15.md` is MD-only, never compiled — leave as-is unless revisited.
+7. **Coordinate step resolved**, not a gap: Cartesian step + MW Eckart projection is canonical (`projection.py` `61119c2`); ≤0.35 pp effect on test-287, reported numbers stand. Full A/B: `FINDING_CART_VS_MW_STEP_2026_06_10.md`.
 
 > A pre-extracted minimal writing-only copy of the latest report also exists at
 > `gad-paper/` (compiles standalone) — use it or ignore it; the canonical sources
