@@ -19,6 +19,7 @@
 \newcommand{\nneg}{\ensuremath{n_{\mathrm{neg}}}}
 \newcommand{\evA}{\ensuremath{\,\text{eV/\AA}}}
 \renewcommand{\pm}{\ensuremath{\,\text{pm}}}
+\newcommand{\NOTE}[1]{\par\smallskip\noindent\fcolorbox{red!55}{red!7}{\parbox{0.965\linewidth}{\footnotesize\textcolor{red!70!black}{\textbf{NOTE.}}~#1}}\par\smallskip}
 
 \title{\Large\textbf{Simplicity as a Feature: Robust Transition-State Search\\[2pt]
 by Gentlest Ascent Dynamics with Cheap Analytic Hessians}}
@@ -28,10 +29,12 @@ by Gentlest Ascent Dynamics with Cheap Analytic Hessians}}
 \begin{document}
 \maketitle
 \thispagestyle{empty}
+\NOTE{\textbf{Overview / open items.} Draft is structurally complete and compiles. Before submission: (1) de-duplicate subset figures --- keep \emph{one} representation per result (flagged inline); (2) reconcile the headline tables (fresh $dt{=}0.003$) with the appendix tables (report $dt{=}0.005$) --- pick one $dt$; (3) decide bullet vs.\ prose for the target venue; (4) add related-work comparison (LMHE, noisyTS Fig.~3); (5) author list is empty.}
 \vspace{-2.2em}
 
 % =====================================================================
 \section*{Abstract}
+\NOTE{Bullet ``Highlights'' abstract --- confirm the venue allows it; many require a single prose paragraph. Numbers here are the fresh $dt{=}0.003$ test-287 values (45.3\% vs.\ 23.7\% at 200\,pm).}
 % =====================================================================
 \noindent
 Machine-learned interatomic potentials (MLIPs) make analytic Hessians cheap
@@ -72,7 +75,8 @@ Transition1x test reactions from perturbed-saddle guesses (10--\SI{200}{pm}).
 
 % =====================================================================
 \section{Introduction}
-% =====================================================================
+
+\NOTE{Intro is in bullets --- most journals expect prose. Add one line that HIP is \emph{held out} (not trained on Transition1x) and why T1x is the right benchmark.}% =====================================================================
 \begin{itemize}
 \item TSs are index-1 saddle points; locating them needs curvature (the Hessian,
   or at least its leftmost eigenpair). \emph{Ab initio} Hessians are expensive,
@@ -93,6 +97,7 @@ Transition1x test reactions from perturbed-saddle guesses (10--\SI{200}{pm}).
 
 % =====================================================================
 \section{Methods}\label{sec:methods}
+\NOTE{Pin the headline GAD config: the figures/headline tables use the fresh $dt{=}0.003$ Cartesian IRC, but the text calls $dt{=}0.005$ ``representative.'' State which $dt$ the headline numbers are and keep it consistent.}
 % =====================================================================
 \textbf{GAD dynamics.} With forces $\mathbf{F}=-\nabla E$ and $\mathbf{v}_1$ the
 lowest eigenvector of the mass-weighted, Eckart-projected Hessian,
@@ -144,6 +149,7 @@ lowest eigenvector of the mass-weighted, Eckart-projected Hessian,
 \section{Results}
 % =====================================================================
 \subsection{Primary result: intended-reaction success (IRC) crosses over with guess quality}\label{sec:primary}
+\NOTE{Figs.~\ref{fig:primary} and~\ref{fig:delta} are two views of the \emph{same} datapoint (intended success). You asked for one representation per result --- recommend the joint intended+convergence figure (\texttt{figures\_new/fig\_intended\_success.pdf}) and dropping the single/delta pair.}
 
 \begin{figure}[H]\centering
 \includegraphics[width=0.72\textwidth]{figures_new/fig_intended_success_single.pdf}
@@ -208,8 +214,10 @@ intended/partial/failed $=$ GAD 130/89/68 vs.\ Sella 68/101/116 --- Sella's loss
 is non-convergence (116 vs.\ 68) plus one-sided partial saddles (101 vs.\ 89).}
 \label{fig:outcomecounts}
 \end{figure}
+\NOTE{Subset duplicate of Fig.~\ref{fig:outcome} (same data, counts vs.\ \%). Keep one.}
 
 \subsection{Mechanism: it is not wrong basins --- it is one-sided saddles and non-convergence}\label{sec:mech}
+\NOTE{Strongest, most honest section --- now fully data-correct (unintended $\approx$ 0). Good. Consider opening the Discussion with this reframing.}
 
 \begin{itemize}
 \item \textbf{Unintended $\approx 0$.} The per-sample 5-tier IRC split gives
@@ -254,8 +262,10 @@ unintended ones.}
 overtakes the baseline from \SI{100}{pm} onward.}
 \label{fig:grouped}
 \end{figure}
+\NOTE{Third view of the outcome data (Figs.~\ref{fig:outcome},~\ref{fig:outcomecounts}). Drop unless it earns its place.}
 
 \subsection{Secondary: saddle-convergence and the \texorpdfstring{$\fmax$}{Fmax} plateau}\label{sec:fmax}
+\NOTE{Two plateau figures (2-panel + grid) downstream --- keep one. The plateau mechanism + the 10k-budget ``intrinsic'' check are solid; keep both points.}
 
 Saddle-convergence ($\nneg{=}1 \wedge \fmax{<}\tau$) asks only whether the
 optimizer reached \emph{a} first-order saddle, independent of which reaction it
@@ -328,6 +338,7 @@ GAD cliff at $0.005$ is universal.}
 \end{figure}
 
 \subsection{Cost and geometry: the hybrid wins both}\label{sec:cost}
+\NOTE{Three cost views (wall-time, steps, pareto). Pareto is the joint one; steps duplicates wall-time --- trim to two.}
 
 \begin{itemize}
 \item \textbf{Wall-time / converged TS:} hybrid lowest at every noise ---
@@ -385,6 +396,7 @@ $\fmax<0.01$, $n=287$.}
 \end{table}
 
 \subsection{Scope boundary: GAD needs to start near the saddle}\label{sec:scope}
+\NOTE{Good to state the scope boundary. Caveat the numbers: reactant is convergence-only (no IRC) and partial-$n$ for GAD; midpoint GAD/hybrid IRC is not yet aggregated.}
 
 \begin{itemize}
 \item Robustness above is for \emph{perturbed-saddle} guesses. From a
@@ -406,6 +418,7 @@ the GAD family needs a near-saddle guess.}
 
 % =====================================================================
 \section{Discussion}
+\NOTE{Add explicit comparison to LMHE (ML leftmost-eigenvector) and the noisyTS Fig.~3 positioning (0--15\,pm) --- a reviewer will expect both, currently absent.}
 % =====================================================================
 \begin{itemize}
 \item When the analytic Hessian is cheap, the limiting factor is the step, not
@@ -506,6 +519,7 @@ noise (Fig.~\ref{fig:d1d3}) --- a stale Hessian yields more one-sided/failed
 outcomes, not unintended ones.
 
 \section{Reproducibility}\label{app:repro}
+\NOTE{Pointers are good. For camera-ready add the GitHub URL + the exact commit hash.}
 {\sloppy
 \begin{itemize}
 \item \textbf{Data (committed CSVs):} \texttt{master\_2026\_05\_16.csv},
@@ -541,222 +555,52 @@ outcomes, not unintended ones.
 
 % =====================================================================
 \clearpage
-\section{Extended figure gallery (all figures)}\label{app:gallery}
-% Auto-generated 2026-06-23: every available figure, each captioned with its
-% source path so it is unambiguous. Some repeat main-text figures by design.
-Every figure produced for this work, captioned by source path. Figures in
-\texttt{figures\_new/} are built from the fresh test-287 5-tier IRC
-(\texttt{scripts/build\_figures\_new.py}); the \texttt{figures\_2026\_05\_16/}
-and \texttt{figures/} sets are the report's all-method comparison charts.
+\section{Figure gallery (one joint view per result)}\label{app:gallery}
+One curated figure per result, favouring the joint multi-panel / multi-line views. Sources: \texttt{figures\_new/} (fresh test-287 5-tier IRC, built by \texttt{scripts/build\_figures\_new.py}) and \texttt{figures/fig\_master\_4axis} (all-method comparison).
 
-
-\subsection*{Manuscript figures (\texttt{figures\_new/})}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_d1_vs_d3.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_d1\_vs\_d3.pdf}}
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.95\textwidth,height=0.42\textheight,keepaspectratio]{figures/fig_master_4axis.pdf}
+\caption{\textbf{All-method four-axis summary (joint).} Intended-reaction success, saddle-convergence, wall-time per converged TS, and RMSD-to-true-TS, all nine configurations plotted against initial-guess noise on one set of axes ($n=287$). The single most complete view of the benchmark.}
+\label{fig:gal0}
 \end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_fmax_plateau.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_fmax\_plateau.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_fmax_plateau_grid.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_fmax\_plateau\_grid.pdf}}
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth,height=0.42\textheight,keepaspectratio]{figures_new/fig_intended_success.pdf}
+\caption{\textbf{Primary result (focused).} Intended-reaction success (left) and saddle-convergence (right) vs.\ noise for GAD, the hybrid, and the strongest Sella baseline. The methods tie when the guess is good and GAD pulls ahead as it degrades; the crossover holds on both axes.}
+\label{fig:gal1}
 \end{figure}
 \clearpage
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_intended_success.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_intended\_success.pdf}}
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth,height=0.42\textheight,keepaspectratio]{figures_new/fig_outcome_stacked.pdf}
+\caption{\textbf{IRC outcome composition.} Each bar splits the 287 reactions into intended, partial (one-sided), and failed-to-converge. No method produces \emph{unintended} saddles; the high-noise gap is one-sided recovery plus non-convergence, not wrong basins.}
+\label{fig:gal2}
 \end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_intended_success_delta.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_intended\_success\_delta.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_intended_success_single.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_intended\_success\_single.pdf}}
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.95\textwidth,height=0.42\textheight,keepaspectratio]{figures_new/fig_fmax_plateau_grid.pdf}
+\caption{\textbf{The $F_\mathrm{max}$ plateau across all noise levels.} Convergence vs.\ force threshold; GAD cliffs to zero below $\approx\!0.01$~eV/\AA{} at every noise level while the Newton-based methods descend further.}
+\label{fig:gal3}
 \end{figure}
 \clearpage
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_outcome_grouped_intended.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_outcome\_grouped\_intended.pdf}}
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.72\textwidth,height=0.42\textheight,keepaspectratio]{figures_new/fig_pareto.pdf}
+\caption{\textbf{Cost vs.\ chemical reliability (joint).} Wall-time per converged TS against intended success, one point per noise level per method. The hybrid is Pareto-dominant at high noise.}
+\label{fig:gal4}
 \end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_outcome_stacked.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_outcome\_stacked.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_outcome_stacked_counts.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_outcome\_stacked\_counts.pdf}}
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.72\textwidth,height=0.42\textheight,keepaspectratio]{figures_new/fig_rmsd_vs_noise.pdf}
+\caption{\textbf{Geometric quality.} Median and 95th-percentile RMSD of the converged TS to the labelled saddle vs.\ noise; the hybrid stays tight where Sella develops a large-RMSD tail.}
+\label{fig:gal5}
 \end{figure}
 \clearpage
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_pareto.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_pareto.pdf}}
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.8\textwidth,height=0.42\textheight,keepaspectratio]{figures_new/fig_d1_vs_d3.pdf}
+\caption{\textbf{Convergence $\neq$ chemistry.} Sella d=3 converges more often than d=1 at low noise yet recovers the intended reaction \emph{less} often at every noise level --- a stale Hessian buys convergences that are not the intended TS.}
+\label{fig:gal6}
 \end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_reactant_scope.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_reactant\_scope.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_rmsd_vs_noise.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_rmsd\_vs\_noise.pdf}}
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.55\textwidth,height=0.42\textheight,keepaspectratio]{figures_new/fig_reactant_scope.pdf}
+\caption{\textbf{Scope boundary.} From a reactant start the GAD family is weak and Sella wins; GAD needs a near-saddle guess for the reaction mode to be identifiable.}
+\label{fig:gal7}
 \end{figure}
 \clearpage
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_saddle_convergence.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_saddle\_convergence.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_steps.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_steps.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_new/fig_walltime.pdf}
-\caption*{\footnotesize\texttt{figures\_new/fig\_walltime.pdf}}
-\end{figure}
-\clearpage
-
-\subsection*{Report figure set (\texttt{figures\_2026\_05\_16/})}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_d1_vs_d3.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_d1\_vs\_d3.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_fmax_decay_gad_vs_hybrid.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_fmax\_decay\_gad\_vs\_hybrid.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_fmax_plateau.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_fmax\_plateau.pdf}}
-\end{figure}
-\clearpage
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_longbudget.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_longbudget.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_main_4axis.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_main\_4axis.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_main_4axis_fmax0p001.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_main\_4axis\_fmax0p001.pdf}}
-\end{figure}
-\clearpage
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_main_4axis_fmax0p005.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_main\_4axis\_fmax0p005.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_main_4axis_fmax0p01.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_main\_4axis\_fmax0p01.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_main_4axis_fmax0p023.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_main\_4axis\_fmax0p023.pdf}}
-\end{figure}
-\clearpage
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_main_4axis_fmax0p05.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_main\_4axis\_fmax0p05.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_pareto_per_noise.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_pareto\_per\_noise.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_ranking_lollipop_high.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_ranking\_lollipop\_high.pdf}}
-\end{figure}
-\clearpage
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_ranking_lollipop_low.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_ranking\_lollipop\_low.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_reactant_bar.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_reactant\_bar.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_rmsd_to_ts.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_rmsd\_to\_ts.pdf}}
-\end{figure}
-\clearpage
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures_2026_05_16/fig_topo_recovery.pdf}
-\caption*{\footnotesize\texttt{figures\_2026\_05\_16/fig\_topo\_recovery.pdf}}
-\end{figure}
-
-\subsection*{All-method / multi-line comparison charts (\texttt{figures/})}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_master_4axis.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_master\_4axis.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_full_sweep_grid.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_full\_sweep\_grid.pdf}}
-\end{figure}
-\clearpage
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_all_methods_conv.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_all\_methods\_conv.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_all_methods_wall.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_all\_methods\_wall.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_all_methods_tsph.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_all\_methods\_tsph.pdf}}
-\end{figure}
-\clearpage
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_cmp_conv_5methods.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_cmp\_conv\_5methods.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_cmp_irc_topo_5methods.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_cmp\_irc\_topo\_5methods.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_cmp_irc_rmsd_all_classes_5methods.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_cmp\_irc\_rmsd\_all\_classes\_5methods.pdf}}
-\end{figure}
-\clearpage
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_cmp_irc_topo_all_classes_5methods.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_cmp\_irc\_topo\_all\_classes\_5methods.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_cmp_conv_3m.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_cmp\_conv\_3m.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_cmp_irc_topo_3m.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_cmp\_irc\_topo\_3m.pdf}}
-\end{figure}
-\clearpage
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_irc_intended_grouped_3m.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_irc\_intended\_grouped\_3m.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_conv_overlay.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_conv\_overlay.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_irc_overlay.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_irc\_overlay.pdf}}
-\end{figure}
-\clearpage
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_noise_sweep_with_irc.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_noise\_sweep\_with\_irc.pdf}}
-\end{figure}
-\begin{figure}[h]\centering
-\includegraphics[width=0.82\textwidth,height=0.40\textheight,keepaspectratio]{figures/fig_noise_sweep_unified.pdf}
-\caption*{\footnotesize\texttt{figures/fig\_noise\_sweep\_unified.pdf}}
-\end{figure}
 
 \end{document}
