@@ -47,6 +47,33 @@ to repo root `GAD_plus/`. Data CSVs live in `analysis_2026_04_29/`.
 
 ---
 
+## New results & figures (2026-06-23)
+
+**5-tier IRC re-validation** (test-287, `sella_hip`, `--all-endpoints`) — splits IRC
+outcomes into intended / partial / unintended / no-reaction / TS-error.
+**KEY FINDING: unintended ≈ 0 for all methods (4/5166)** — failures are
+non-convergence + partial, never wrong saddles. McNemar paired stats: tied ≤50 pm
+(p=1.0), significant 150–200 pm (p<0.0001). Writeup: `FINDING_IRC_5TIER_2026_06_23.md`.
+
+| Artifact | Path |
+|---|---|
+| Per-sample 5-tier table | `analysis_2026_04_29/irc_outcomes_5tier_test287.csv` |
+| IRC parquets (GAD/Hybrid/Sella) | `runs/irc_gad_test287/`, `runs/irc_hybrid_test287/{N}pm/`, `runs/irc_sella_test287/` |
+| GAD TS source (Cartesian, test-287) | `runs/gad_eckart_fmax_cart_test/` |
+| Sella TS source (regenerated test-287) | `runs/sella_libdef_test287/` |
+| Launchers | `scripts/run_irc_{gad,hybrid,sella}_test287.slurm`, `scripts/run_sella_libdef_test287.slurm` |
+
+**Figure suite** — `figures_new/` (generator `scripts/build_figures_new.py`, re-runnable; .pdf for LaTeX + .png preview):
+- Headline intended success: `fig_intended_success` (manuscript name) · `_single` · `_delta`
+- IRC outcome composition: `fig_outcome_stacked` (manuscript name) · `_counts` · `fig_outcome_grouped_intended`
+- fmax plateau: `fig_fmax_plateau` (manuscript name) · `_grid`
+- Cost: `fig_walltime` (manuscript name) · `fig_pareto` · `fig_steps`
+- Convergence ≠ chemistry: `fig_d1_vs_d3`
+
+**Cartesian-step A/B**: `FINDING_CART_VS_MW_STEP_2026_06_10.md` + `runs/gad_eckart_fmax_cart{,_test}/`, `runs/gad_eckart_fmax_mw_test/`.
+
+**Alternative starts (partial)**: reactant `analysis_2026_04_29/reactant_0pm_2026_05_16.csv` (Sella 80.8%, GAD/hybrid weak — scope boundary); midpoint `analysis_2026_04_29/irc_followup_2026_05_16.csv` (Sella 29.6% intended; GAD/hybrid IRC not yet aggregated).
+
 ## Gaps others may find
 
 1. **`references/noisyTS.tex`** — the LMHE comparison paper source (Fig-3, 0–15 pm positioning). Related-work anchor; not yet folded into any report.
