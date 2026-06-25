@@ -19,7 +19,6 @@
 \newcommand{\nneg}{\ensuremath{n_{\mathrm{neg}}}}
 \newcommand{\evA}{\ensuremath{\,\text{eV/\AA}}}
 \renewcommand{\pm}{\ensuremath{\,\text{pm}}}
-\newcommand{\NOTE}[1]{\par\smallskip\noindent\fcolorbox{red!55}{red!7}{\parbox{0.965\linewidth}{\footnotesize\textcolor{red!70!black}{\textbf{NOTE.}}~#1}}\par\smallskip}
 
 \title{\Large\textbf{Simplicity as a Feature: Robust Transition-State Search\\[2pt]
 by Gentlest Ascent Dynamics with Cheap Analytic Hessians}}
@@ -29,12 +28,10 @@ by Gentlest Ascent Dynamics with Cheap Analytic Hessians}}
 \begin{document}
 \maketitle
 \thispagestyle{empty}
-\NOTE{\textbf{Overview / open items.} Draft is structurally complete and compiles. Before submission: (1) de-duplicate subset figures --- keep \emph{one} representation per result (flagged inline); (2) reconcile the headline tables (fresh $dt{=}0.003$) with the appendix tables (report $dt{=}0.005$) --- pick one $dt$; (3) decide bullet vs.\ prose for the target venue; (4) add related-work comparison (LMHE, noisyTS Fig.~3); (5) author list is empty.}
 \vspace{-2.2em}
 
 % =====================================================================
 \section*{Abstract}
-\NOTE{Bullet ``Highlights'' abstract --- confirm the venue allows it; many require a single prose paragraph. Numbers here are the fresh $dt{=}0.003$ test-287 values (45.3\% vs.\ 23.7\% at 200\,pm).}
 % =====================================================================
 \noindent
 Machine-learned interatomic potentials (MLIPs) make analytic Hessians cheap
@@ -76,7 +73,6 @@ Transition1x test reactions from perturbed-saddle guesses (10--\SI{200}{pm}).
 % =====================================================================
 \section{Introduction}
 
-\NOTE{Intro is in bullets --- most journals expect prose. Add one line that HIP is \emph{held out} (not trained on Transition1x) and why T1x is the right benchmark.}% =====================================================================
 \begin{itemize}
 \item TSs are index-1 saddle points; locating them needs curvature (the Hessian,
   or at least its leftmost eigenpair). \emph{Ab initio} Hessians are expensive,
@@ -97,7 +93,6 @@ Transition1x test reactions from perturbed-saddle guesses (10--\SI{200}{pm}).
 
 % =====================================================================
 \section{Methods}\label{sec:methods}
-\NOTE{Pin the headline GAD config: the figures/headline tables use the fresh $dt{=}0.003$ Cartesian IRC, but the text calls $dt{=}0.005$ ``representative.'' State which $dt$ the headline numbers are and keep it consistent.}
 % =====================================================================
 \textbf{GAD dynamics.} With forces $\mathbf{F}=-\nabla E$ and $\mathbf{v}_1$ the
 lowest eigenvector of the mass-weighted, Eckart-projected Hessian,
@@ -149,14 +144,17 @@ lowest eigenvector of the mass-weighted, Eckart-projected Hessian,
 \section{Results}
 % =====================================================================
 \subsection{Primary result: intended-reaction success (IRC) crosses over with guess quality}\label{sec:primary}
-\NOTE{Figs.~\ref{fig:primary} and~\ref{fig:delta} are two views of the \emph{same} datapoint (intended success). You asked for one representation per result --- recommend the joint intended+convergence figure (\texttt{figures\_new/fig\_intended\_success.pdf}) and dropping the single/delta pair.}
 
 \begin{figure}[H]\centering
 \includegraphics[width=0.72\textwidth]{figures_new/fig_intended_success_single.pdf}
 \caption{\textbf{Primary metric: intended-reaction success rate (IRC) vs.\
-initial-guess noise}, $n=287$. Methods coincide at low noise; GAD and the hybrid
-retain far more intended reactions as the guess degrades.
-(Saddle-convergence is shown separately in Fig.~\ref{fig:conv}.)}
+initial-guess noise}, $n=287$. \emph{$x$-axis:} isotropic Gaussian perturbation
+of the true saddle (10--\SI{200}{pm}). \emph{$y$-axis:} \% of the 287 reactions
+whose forward and backward IRC graph-match \emph{both} the intended reactant and
+product. One line each for GAD, the hybrid, and the strongest Sella baseline. The
+three methods coincide while the guess is good; GAD and the hybrid retain far
+more intended reactions as it degrades. (Saddle-convergence is shown separately
+in Fig.~\ref{fig:conv}.)}
 \label{fig:primary}
 \end{figure}
 
@@ -214,10 +212,8 @@ intended/partial/failed $=$ GAD 130/89/68 vs.\ Sella 68/101/116 --- Sella's loss
 is non-convergence (116 vs.\ 68) plus one-sided partial saddles (101 vs.\ 89).}
 \label{fig:outcomecounts}
 \end{figure}
-\NOTE{Subset duplicate of Fig.~\ref{fig:outcome} (same data, counts vs.\ \%). Keep one.}
 
 \subsection{Mechanism: it is not wrong basins --- it is one-sided saddles and non-convergence}\label{sec:mech}
-\NOTE{Strongest, most honest section --- now fully data-correct (unintended $\approx$ 0). Good. Consider opening the Discussion with this reframing.}
 
 \begin{itemize}
 \item \textbf{Unintended $\approx 0$.} The per-sample 5-tier IRC split gives
@@ -262,10 +258,8 @@ unintended ones.}
 overtakes the baseline from \SI{100}{pm} onward.}
 \label{fig:grouped}
 \end{figure}
-\NOTE{Third view of the outcome data (Figs.~\ref{fig:outcome},~\ref{fig:outcomecounts}). Drop unless it earns its place.}
 
 \subsection{Secondary: saddle-convergence and the \texorpdfstring{$\fmax$}{Fmax} plateau}\label{sec:fmax}
-\NOTE{Two plateau figures (2-panel + grid) downstream --- keep one. The plateau mechanism + the 10k-budget ``intrinsic'' check are solid; keep both points.}
 
 Saddle-convergence ($\nneg{=}1 \wedge \fmax{<}\tau$) asks only whether the
 optimizer reached \emph{a} first-order saddle, independent of which reaction it
@@ -324,21 +318,29 @@ Hybrid (ours)    & 85.4 & 85.0 & 81.5 & 66.9 & 50.9 & 33.1 \\
 
 \begin{figure}[H]\centering
 \includegraphics[width=0.92\textwidth]{figures_new/fig_fmax_plateau.pdf}
-\caption{\textbf{The $\fmax$ plateau} (convergence vs.\ threshold; tighter to the
-right). GAD drops vertically near $0.01$; Sella and the hybrid descend into
-$0.005$ via Newton landing.}
+\caption{\textbf{The $\fmax$ plateau (50 and \SI{150}{pm} noise).}
+Saddle-convergence rate (\%, $y$) vs.\ the $\fmax$ threshold ($x$, log axis,
+tightening to the right; shaded $=$ the sub-$0.005$ plateau zone), one line per
+method. GAD drops vertically near $\fmax{=}0.01$ --- it has essentially no
+converged samples below it --- whereas Sella and the hybrid keep descending into
+the $0.005$ band because their trust-radius-capped Newton step continues to drive
+the residual force down. No method reaches $0.001$ within the 2{,}000-step budget.}
 \label{fig:plateau}
 \end{figure}
 
 \begin{figure}[H]\centering
 \includegraphics[width=0.95\textwidth]{figures_new/fig_fmax_plateau_grid.pdf}
-\caption{\textbf{Convergence vs.\ $\fmax$ threshold, all six noise levels.} The
-GAD cliff at $0.005$ is universal.}
+\caption{\textbf{Saddle-convergence vs.\ $\fmax$ threshold, one panel per noise
+level (10--\SI{200}{pm}).} Each panel plots convergence rate (\%) against the
+force threshold (log $x$, tightening to the right; shaded $=$ plateau zone) for
+GAD, the hybrid, and the Sella baseline. The GAD curve collapses vertically to
+0\% at $\fmax<0.005$ in \emph{every} panel, whereas Sella and the hybrid descend
+further --- the plateau is a property of the fixed-step first-order dynamics,
+universal across noise.}
 \label{fig:grid}
 \end{figure}
 
 \subsection{Cost and geometry: the hybrid wins both}\label{sec:cost}
-\NOTE{Three cost views (wall-time, steps, pareto). Pareto is the joint one; steps duplicates wall-time --- trim to two.}
 
 \begin{itemize}
 \item \textbf{Wall-time / converged TS:} hybrid lowest at every noise ---
@@ -396,7 +398,6 @@ $\fmax<0.01$, $n=287$.}
 \end{table}
 
 \subsection{Scope boundary: GAD needs to start near the saddle}\label{sec:scope}
-\NOTE{Good to state the scope boundary. Caveat the numbers: reactant is convergence-only (no IRC) and partial-$n$ for GAD; midpoint GAD/hybrid IRC is not yet aggregated.}
 
 \begin{itemize}
 \item Robustness above is for \emph{perturbed-saddle} guesses. From a
@@ -418,7 +419,6 @@ the GAD family needs a near-saddle guess.}
 
 % =====================================================================
 \section{Discussion}
-\NOTE{Add explicit comparison to LMHE (ML leftmost-eigenvector) and the noisyTS Fig.~3 positioning (0--15\,pm) --- a reviewer will expect both, currently absent.}
 % =====================================================================
 \begin{itemize}
 \item When the analytic Hessian is cheap, the limiting factor is the step, not
@@ -519,7 +519,6 @@ noise (Fig.~\ref{fig:d1d3}) --- a stale Hessian yields more one-sided/failed
 outcomes, not unintended ones.
 
 \section{Reproducibility}\label{app:repro}
-\NOTE{Pointers are good. For camera-ready add the GitHub URL + the exact commit hash.}
 {\sloppy
 \begin{itemize}
 \item \textbf{Data (committed CSVs):} \texttt{master\_2026\_05\_16.csv},
