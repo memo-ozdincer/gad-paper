@@ -1,5 +1,5 @@
 \documentclass[11pt]{article}
-\usepackage[margin=0.95in]{geometry}
+\usepackage[margin=0.9in]{geometry}
 \usepackage{amsmath, amssymb}
 \usepackage{graphicx}
 \usepackage{float}
@@ -9,901 +9,495 @@
 \usepackage{enumitem}
 \usepackage{multirow}
 \usepackage[colorlinks=true,linkcolor=blue!55!black,citecolor=blue!55!black,urlcolor=blue!55!black]{hyperref}
-
-% =====================================================================
-% UPDATE NEEDED (2026-06-23) — fresh test-287 IRC 5-tier re-validation.
-% See FINDING_IRC_5TIER_2026_06_23.md + analysis_2026_04_29/irc_outcomes_5tier_test287.csv.
-%   1. unintended ~= 0 for ALL methods (4/5166). DROP the "Newton converges to
-%      unintended saddles" claim (abstract + Results II). Failures are
-%      non-convergence + partial (one-sided IRC), never wrong saddles.
-%   2. Frame the advantage as a TREND, not the single 200pm point: tied <=50pm
-%      (McNemar p=1.0), emerges at 100pm (p~0.10), significant 150-200pm (p<1e-4).
-%   3. Figures now live in figures_new/ (built from the fresh data); fig_outcome_stacked
-%      third band is "failed to converge", not "unintended".
-%   4. Scope boundary: robustness shown for perturbed-saddle starts; from a
-%      REACTANT start GAD/hybrid are weak and Sella wins (reactant_0pm CSV).
-% Prose rewrite is the author's (content bullets agreed). Marked inline with %TODO.
-% =====================================================================
+\setlist[itemize]{leftmargin=1.4em, itemsep=0.12em, topsep=0.2em}
 
 % Lightweight, mode-safe unit macros (avoid siunitx dependency)
 \newcommand{\SI}[2]{#1\,\text{#2}}
 \newcommand{\si}[1]{\text{#1}}
 \newcommand{\SIrange}[3]{#1--#2\,\text{#3}}
+\newcommand{\fmax}{\ensuremath{F_{\mathrm{max}}}}
+\newcommand{\nneg}{\ensuremath{n_{\mathrm{neg}}}}
+\newcommand{\evA}{\ensuremath{\,\text{eV/\AA}}}
+\renewcommand{\pm}{\ensuremath{\,\text{pm}}}
 
 \title{\Large\textbf{Simplicity as a Feature: Robust Transition-State Search\\[2pt]
 by Gentlest Ascent Dynamics with Cheap Analytic Hessians}}
 \author{}
 \date{\today}
 
-% ---- handy macros ----
-\newcommand{\fmax}{\ensuremath{F_{\mathrm{max}}}}
-\newcommand{\nneg}{\ensuremath{n_{\mathrm{neg}}}}
-\newcommand{\evA}{\ensuremath{\,\text{eV/\AA}}}
-\renewcommand{\pm}{\ensuremath{\,\text{pm}}}
-
 \begin{document}
 \maketitle
 \thispagestyle{empty}
+\vspace{-2.2em}
 
-\begin{abstract}
+% =====================================================================
+\section*{Abstract}
+% =====================================================================
 \noindent
-Finding transition states (TSs) --- index-1 saddle points on the potential
-energy surface --- requires second-order (Hessian) information for reliable
-convergence, yet the cost of \emph{ab initio} Hessians has driven the field to
-avoid them: through iterative diagonalization, quasi-Newton (QN) history
-updates, or, most recently, machine-learned prediction of the Hessian or its
-leftmost eigenvector. We argue that machine-learned interatomic potentials
-(MLIPs) change the premise. When an analytic Hessian costs a fraction of a
-second, the binding constraint is no longer the Hessian but the \emph{step}:
-how to convert curvature into a geometry update that survives a poor initial
-guess. We show that the simplest possible answer --- a first-order Gentlest
-Ascent Dynamics (GAD) walk along the lowest eigenvector of the
-Eckart-projected analytic Hessian --- is markedly more robust than
-trust-region/Newton stepping as the initial guess degrades. Our primary
-measure of success is the \emph{intended success rate}: after optimization we
-follow the intrinsic reaction coordinate (IRC) forward and backward and require
-both endpoints to recover the intended reactant and product by molecular-graph
-isomorphism. On 287 reactions from the Transition1x test set, evaluated with the
-HIP MLIP under a controlled Gaussian perturbation of the saddle geometry from 10
-to \SI{200}{pm}, GAD matches the strongest Sella baseline at low noise and pulls
-decisively ahead at high noise, improving the intended success rate by
-\textbf{+21.3 percentage points at \SI{200}{pm}} (44.6\% vs.\ 23.3\%). The
-mechanism is geometric: small Euler steps walk through basins, whereas
-Newton/RFO jumps cross basin boundaries and converge to unintended saddles. % TODO: REWRITE — unintended~=0 for all methods; real mechanism is recover-both-channels vs partial/non-convergence. Also frame +21.3@200pm as the endpoint of a trend (significant 150-200pm), not the headline number.
-We
-then characterize the one regime where first-order dynamics is fundamentally
-limited --- a force-convergence (\fmax) plateau near \SI{0.01}{eV/\AA} that no
-step budget removes --- and show that a GAD$\rightarrow$Newton hybrid eliminates
-it, simultaneously winning wall-time per converged TS (up to $3.0\times$ vs.\
-Sella) and producing the geometrically tightest structures ($7.7\times$ tighter
-95th-percentile RMSD at \SI{200}{pm}). The result is a TS finder whose
-robustness, cost, and accuracy all improve precisely where existing optimizers
-fail: when the starting structure is far from the saddle.
-\end{abstract}
+Machine-learned interatomic potentials (MLIPs) make analytic Hessians cheap
+($\approx\!\SI{0.06}{s}$/structure with HIP \cite{hip}), so the bottleneck in
+transition-state (TS) search is no longer the Hessian but the \emph{step}. We
+use the minimal choice --- first-order Gentlest Ascent Dynamics (GAD) on the
+lowest eigenvector of the Eckart-projected analytic Hessian, a Cartesian step
+with no trust region, quasi-Newton update, RFO, or eigenvector prediction. Our
+primary metric is the IRC-validated \emph{intended success rate} (forward and
+backward IRC must graph-match the intended reactant and product), on 287
+Transition1x test reactions from perturbed-saddle guesses (10--\SI{200}{pm}).
+
+\vspace{0.3em}
+\noindent\textbf{Highlights}
+\begin{itemize}
+\item \textbf{Crossover, not a point.} GAD is statistically indistinguishable
+  from the strongest Sella baseline when the guess is good (McNemar $p\!\approx\!1.0$,
+  $\le\!\SI{50}{pm}$) and pulls significantly ahead as it degrades
+  ($p\!<\!10^{-4}$ by 150--\SI{200}{pm}; \textbf{+21.6~pp intended at \SI{200}{pm}},
+  45.3\% vs.\ 23.7\%). The same crossover holds for convergence and across
+  \fmax{} thresholds.
+\item \textbf{Mechanism (corrected).} \emph{No} method converges to an
+  unintended (wrong-basin) saddle --- unintended $\approx 0/287$ for all three.
+  GAD's edge is recovering the full two-sided reaction more often; Sella's
+  high-noise loss is non-convergence + one-sided (partial) saddles, not wrong
+  basins.
+\item \textbf{Honest cost.} First-order GAD cannot tighten \fmax{} below
+  $\approx\!0.01\evA$; no step budget removes it. This plateau lives on the
+  \emph{secondary} (convergence) axis only.
+\item \textbf{Hybrid.} A GAD$\rightarrow$Newton switch removes the plateau, wins
+  wall-time per converged TS ($1.4$--$3\times$) and geometry (tightest p95
+  RMSD), and inherits GAD's chemistry.
+\item \textbf{Scope boundary.} Robustness is demonstrated for \emph{perturbed-saddle}
+  guesses. From a reactant start the GAD family is weak (hybrid $\sim$2\%) and
+  Sella wins --- GAD needs to start near the saddle for the reaction mode to be
+  identifiable.
+\end{itemize}
 
 % =====================================================================
 \section{Introduction}
 % =====================================================================
-
-Transition states are the geometric bottlenecks of chemical reactions: index-1
-saddle points whose energy sets the kinetic barrier and whose structure encodes
-the mechanism. Locating them is harder than locating minima because the
-optimizer must \emph{ascend} one direction (the reaction coordinate) while
-descending all others. Doing this reliably requires curvature information ---
-the Hessian, or at least its leftmost (most negative) eigenpair, which defines
-the ascent direction.
-
-The difficulty is that \emph{ab initio} Hessians are expensive, so essentially
-every practical TS optimizer is built to avoid computing them. Quasi-Newton
-methods accumulate an approximate Hessian from gradient history; the dimer
-method follows the minimum-mode using only first derivatives \cite{dimer};
-eigenvector-following and (restricted-step) partitioned rational-function
-optimization (P-RFO) recover only the leftmost eigenpair on demand
-\cite{cerjanmiller,banerjee,baker}; the Sella optimizer does this by iterative
-partial-Hessian diagonalization in redundant internal coordinates
-\cite{sella2019,sella2022}. A recent wave of machine learning predicts the
-Hessian directly \cite{newtonnet,hip}, or predicts just its leftmost eigenvector
-\cite{lmhe}, to sidestep the cost entirely. All of these answer the same
-question: \emph{how do we get curvature without paying for the Hessian?}
-
-\paragraph{The premise has changed.} Machine-learned interatomic potentials now
-deliver analytic energies, forces, \emph{and} Hessians by automatic
-differentiation or by direct prediction at a cost of order \SI{0.1}{s} per
-structure; on the systems studied here, the HIP potential \cite{hip} returns a
-full analytic Hessian in $\approx\!\SI{0.06}{s}$. Once curvature is cheap, the
-question above dissolves: we need not approximate, diagonalize, or predict the
-Hessian --- we can compute the exact one at every step. What then becomes the
-bottleneck is the \textbf{step}, the rule that turns a gradient and a Hessian
-into a geometry update. And here the conventional choice is questionable.
-Trust-region Newton and RFO take large ($\mathcal{O}(0.1\,\text{\AA})$)
-quasi-Newton jumps that are optimal near a quadratic saddle but, from a degraded
-initial guess, can jump across a basin boundary and converge confidently to an
-unintended saddle.
-
-\paragraph{This work.} We take the opposite, deliberately minimal approach.
-Given a cheap exact Hessian, we discard P-RFO, trust radii, QN updates,
-eigenvector prediction, and ensembling, and step with first-order Gentlest
-Ascent Dynamics (GAD) \cite{gad}: reflect the force about the lowest Hessian
-eigenvector and take a small Euler step. The simplicity is not a compromise; it
-is the source of the method's robustness. We evaluate on the Transition1x
-benchmark \cite{transition1x} and, following the convention of the recent
-ML-Hessian TS literature \cite{newtonnet,lmhe}, take as our \emph{primary}
-metric the IRC-validated \emph{intended success rate} rather than the weaker
-question of whether the optimizer merely reached a saddle. Our contributions:
-
-\begin{enumerate}[leftmargin=1.6em, itemsep=0.15em]
-\item \textbf{GAD as a robust TS finder.} A first-order GAD walk on the lowest
-  eigenvector of the \emph{Eckart-projected} analytic Hessian, with no
-  second-order stepping machinery (Section~\ref{sec:methods}).
-\item \textbf{A controlled robustness benchmark, scored by intended success.} A
-  six-level Gaussian perturbation of the true saddle (10--\SI{200}{pm}) on 287
-  Transition1x reactions, scored by IRC-endpoint graph matching into the
-  standard \emph{intended / partially intended / unintended} taxonomy
-  (Section~\ref{sec:robust}).
-\item \textbf{The \fmax{} plateau.} A mechanistic, quantitatively confirmed
-  limit of first-order saddle dynamics: GAD cannot tighten the maximum force
-  below $\approx\!\SI{0.01}{eV/\AA}$, and no step budget removes it
-  (Section~\ref{sec:fmax}).
-\item \textbf{A hybrid that removes the plateau.} A GAD$\rightarrow$Newton
-  switch that retains GAD's in-basin robustness while winning wall-time and
-  producing the tightest geometries (Section~\ref{sec:hybrid}).
-\end{enumerate}
-
-The thesis throughout is a single sentence: \emph{in the MLIP regime, you do not
-need to avoid the Hessian --- you need to step more carefully with it.}
+\begin{itemize}
+\item TSs are index-1 saddle points; locating them needs curvature (the Hessian,
+  or at least its leftmost eigenpair). \emph{Ab initio} Hessians are expensive,
+  so optimizers avoid them: dimer \cite{dimer}, eigenvector-following / P-RFO
+  \cite{cerjanmiller,banerjee,baker}, Sella's iterative partial-Hessian
+  diagonalization \cite{sella2019,sella2022}, and recent ML prediction of the
+  Hessian \cite{newtonnet,hip} or its leftmost eigenvector \cite{lmhe}.
+\item \textbf{The premise has changed.} With MLIPs the analytic Hessian is cheap
+  ($\approx\!\SI{0.06}{s}$ for HIP \cite{hip}). The bottleneck becomes the
+  \textbf{step}. Trust-region/Newton jumps ($\mathcal{O}(0.1\,$\AA$)$) are
+  optimal near a quadratic saddle but fragile from a poor guess.
+\item \textbf{This work.} Given a cheap exact Hessian, discard P-RFO, trust
+  radii, QN, and eigenvector prediction; step with first-order GAD \cite{gad}.
+  Score success by IRC-validated \emph{intended} recovery \cite{newtonnet,lmhe},
+  not mere convergence. Thesis: \emph{in the MLIP regime you need not avoid the
+  Hessian --- you need to step more carefully with it.}
+\end{itemize}
 
 % =====================================================================
 \section{Methods}\label{sec:methods}
 % =====================================================================
-
-\subsection{Gentlest Ascent Dynamics}
-
-Let $\mathbf{F} = -\nabla E$ be the atomic forces and $\mathbf{v}_1$ the
-eigenvector of the (mass-weighted, Eckart-projected) Hessian with the smallest
-eigenvalue. GAD \cite{gad} evolves the geometry by reflecting the force about
-$\mathbf{v}_1$, converting descent into ascent along that single mode while
-preserving descent in every orthogonal direction:
+\textbf{GAD dynamics.} With forces $\mathbf{F}=-\nabla E$ and $\mathbf{v}_1$ the
+lowest eigenvector of the mass-weighted, Eckart-projected Hessian,
 \begin{equation}
-\dot{\mathbf{x}} \;=\; \mathbf{F}_{\mathrm{GAD}}
-\;=\; \bigl(\mathbf{I} - 2\,\mathbf{v}_1\mathbf{v}_1^{\!\top}\bigr)\mathbf{F}
-\;=\; \mathbf{F} - 2\,(\mathbf{F}\!\cdot\!\mathbf{v}_1)\,\mathbf{v}_1 .
+\dot{\mathbf{x}} = \bigl(\mathbf{I} - 2\,\mathbf{v}_1\mathbf{v}_1^{\!\top}\bigr)\mathbf{F}
+= \mathbf{F} - 2(\mathbf{F}\!\cdot\!\mathbf{v}_1)\,\mathbf{v}_1 ,
+\qquad
+\mathbf{x}_{k+1} = \mathbf{x}_k + dt\,\dot{\mathbf{x}} .
 \label{eq:gad}
 \end{equation}
-We integrate Eq.~\eqref{eq:gad} with a fixed-step explicit Euler scheme,
-$\mathbf{x}_{k+1} = \mathbf{x}_k + dt\,\mathbf{F}_{\mathrm{GAD}}(\mathbf{x}_k)$,
-with $dt$ a fixed time step (we report $dt \in \{0.003, 0.005, 0.007\}$;
-results are insensitive to this choice within $\sim$1--2~pp, and we use
-$dt=0.005$ as the representative configuration). There is no path history, no
-trust region, and no line search: each step depends only on the current
-geometry. To follow the reaction mode smoothly through eigenvalue crossings,
-$\mathbf{v}_1$ is chosen by maximum overlap with the previous step's mode among
-the lowest few eigenvectors (mode tracking); per-atom displacements are capped
-at \SI{0.35}{\AA} as a rarely triggered safety valve.
-
-\subsection{The potential and its analytic Hessian}
-
-All energies, forces, and Hessians come from HIP \cite{hip}, an
-$SE(3)$-equivariant MLIP that returns the analytic Hessian directly
-($\approx\!\SI{0.06}{s}$ per structure on these systems). HIP is not trained on
-Transition1x, so the benchmark is a held-out evaluation. Because curvature is
-cheap, the Hessian is recomputed exactly at \emph{every} GAD step --- the regime
-in which Eq.~\eqref{eq:gad} is exact rather than approximate.
-
-\subsection{Eckart projection and the geometry step}
-
-A raw Cartesian Hessian mixes the six (five for linear molecules) zero-frequency
-translation/rotation (TR) modes into the spectrum, contaminating both the
-eigenvector $\mathbf{v}_1$ and the count of negative eigenvalues. We therefore
-build an Eckart projector that removes the TR subspace in mass-weighted
-coordinates, diagonalize the reduced $(3N\!-\!6)$ vibrational Hessian, and use
-its lowest mode in Eq.~\eqref{eq:gad}. The displacement itself is taken in
-Cartesian coordinates (an A/B test against a mass-weighted step changes test-set
-intended success by $\le 0.35$~pp). Eckart projection is the single most
-important ingredient for robustness: it ensures the dynamics climbs a genuine
-vibrational mode rather than a rotation-contaminated artifact.
-
-\subsection{Hybrid GAD--Newton}\label{sec:hybridmethod}
-
-The hybrid walks with Eq.~\eqref{eq:gad} until the geometry is close to a clean
-index-1 saddle (the vibrational spectrum shows a single negative eigenvalue and
-the internal force is small), then switches to an eigenvector-following Newton
-step on the same analytic Hessian, with a trust-radius cap to prevent the
-$\mathbf{H}^{-1}\mathbf{F}$ blow-up near a vanishing eigenvalue. The motivation
-(Section~\ref{sec:fmax}) is that the GAD step starves near the saddle while a
-Newton step does not.
-
-\subsection{Benchmark protocol}
-
-We evaluate on 287 reactions from the Transition1x \cite{transition1x} test
-split. To probe robustness to the quality of the initial guess --- the property
-that matters in any real high-throughput workflow, where guesses come from
-interpolation or templates rather than from the answer --- we start each
-optimization from the \emph{noised true TS}: the labelled saddle geometry
-perturbed by isotropic Gaussian noise of standard deviation $\sigma \in \{10,
-30, 50, 100, 150, 200\}\pm$ applied to each Cartesian coordinate, following the
-picometre convention used throughout the project's benchmarks. This isolates the
-optimizer's basin of attraction from confounds in guess generation. As a
-baseline we use Sella \cite{sella2022}, the standard open-source saddle
-optimizer (iterative diagonalization + RS-P-RFO), in its strongest configuration
-on this benchmark --- Cartesian coordinates with Eckart projection and an exact
-analytic Hessian every step --- and, for completeness, its tuned,
-internal-coordinate, and reduced-Hessian-frequency variants
-(Appendix~\ref{app:sella}). All methods see the identical sample set, potential,
-and convergence criterion.
-% TODO (scope, per reviewer-proofing): our robustness claim is for PERTURBED-SADDLE
-% starts. We also have reactant-start data (reactant_0pm CSV): there GAD/hybrid are
-% WEAK (hybrid ~2%) and Sella wins (~81% conv). State this as a scope boundary, and
-% midpoint-start (Sella 29.6% intended; GAD/hybrid IRC not yet aggregated).
-
-\subsection{Convergence criterion (secondary)}\label{sec:conv}
-
-We call a geometry \emph{converged} when the optimizer reaches a first-order
-saddle, i.e.\ it has exactly one negative vibrational eigenvalue \emph{and} a
-small residual force,
-\begin{equation}
-\nneg = 1 \quad\wedge\quad \fmax < \tau ,
-\end{equation}
-where $\fmax$ is the largest force component on any atom and $\tau$ is a force
-threshold in \si{eV/\AA}. Following Sella's choice of the maximum force for
-consistency with ASE optimizers \cite{sella2022}, we report a family of
-thresholds (Appendix~\ref{app:crit}): the ASE default ($\tau=0.05$), the
-Gaussian ``Normal'' maximum force ($\tau=0.0231$), a strict-but-reachable
-project default ($\tau=0.01$), a tight threshold ($\tau=0.005$), and the value
-cited as fully converged in the Sella documentation ($\tau=0.001$). Unless
-stated, $\tau=0.01$. \textbf{Convergence is a necessary but insufficient
-condition for a useful TS}: it certifies that a geometry is \emph{a} saddle, not
-that it is the \emph{intended} one. We therefore treat convergence as a
-secondary, diagnostic quantity and validate every converged candidate by the
-IRC.
-
-\subsection{IRC validation and the intended success rate (primary)}\label{sec:irc}
-
-Our primary measure of success is whether the located TS actually connects the
-intended chemistry. After optimization we follow the intrinsic reaction
-coordinate forward and backward using Sella's own IRC integrator
-\cite{sella2022}, and compare each IRC endpoint's molecular connectivity graph
-to the labelled reactant and product by graph isomorphism (connectivity graphs
-generated with Open Babel and compared with the VF2 algorithm), in the same
-spirit as the recent ML-Hessian TS papers \cite{newtonnet,lmhe}. Each
-optimization is classified into the standard taxonomy:
-
-\begin{itemize}[leftmargin=1.5em, itemsep=0.05em]
-\item \textbf{Intended} --- both IRC endpoints recover the intended reactant and
-  product (a two-endpoint match). \emph{This is the headline ``intended success
-  rate''.}
-\item \textbf{Partially intended} --- exactly one endpoint matches
-  (a one-endpoint match).
-\item \textbf{Unintended} --- a valid saddle, but the IRC connects a different
-  pair of minima.
-\item \textbf{No reaction} --- the trajectory collapsed to a single minimum.
-\item \textbf{TS error} --- the optimization failed to converge.
+\begin{itemize}
+\item \textbf{Step:} fixed-$dt$ explicit Euler ($dt\!\in\!\{0.003,0.005,0.007\}$;
+  representative 0.005), Cartesian, no history/trust-region/line-search; mode
+  tracked by max overlap; per-atom cap \SI{0.35}{\AA}.
+\item \textbf{Potential:} HIP \cite{hip}, an $SE(3)$-equivariant MLIP returning
+  the analytic Hessian ($\approx\!\SI{0.06}{s}$); not trained on Transition1x
+  (held out); Hessian recomputed every step.
+\item \textbf{Eckart projection:} remove the 6 translation/rotation modes in
+  mass-weighted coordinates, diagonalize the reduced $(3N\!-\!6)$ Hessian; single
+  most important robustness ingredient. (Cartesian vs.\ MW step: $\le 0.35$~pp.)
+\item \textbf{Hybrid GAD--Newton:} walk with Eq.~\eqref{eq:gad}; near a clean
+  index-1 saddle ($\nneg{=}1$, small force) switch to a trust-radius-capped
+  eigenvector-following Newton step on the same analytic Hessian.
+\item \textbf{Benchmark:} 287 Transition1x \cite{transition1x} test reactions;
+  start = true saddle + isotropic Gaussian noise
+  $\sigma\!\in\!\{10,30,50,100,150,200\}\pm$; baseline = Sella \cite{sella2022}
+  (strongest config: Cartesian + Eckart, exact Hessian/step;
+  Appendix~\ref{app:sella}).
 \end{itemize}
 
-For geometric quality we additionally report the RMSD of the converged TS to the
-labelled Transition1x saddle (Kabsch alignment with Hungarian atom matching).
-Throughout, ``intended success rate'' is the primary axis and ``convergence
-rate'' the secondary one.
+\noindent\textbf{Metrics --- primary vs.\ secondary.}
+\begin{itemize}
+\item \textbf{Convergence rate (secondary):} optimizer reached a first-order
+  saddle, $\nneg{=}1 \wedge \fmax{<}\tau$ (default $\tau=0.01\evA$; threshold
+  family in Appendix~\ref{app:crit}). Necessary but \emph{insufficient}.
+\item \textbf{Intended success rate (primary):} after optimization, follow
+  Sella's IRC \cite{sella2022} forward/backward and graph-match each endpoint
+  (Open~Babel connectivity + VF2) to the labelled reactant/product. Outcomes
+  (after \cite{newtonnet,lmhe}): \emph{intended} (both endpoints),
+  \emph{partially intended} (one), \emph{unintended} (valid saddle, other
+  reaction), \emph{no reaction} (collapsed to a minimum), \emph{TS error}
+  (no convergence).
+\end{itemize}
 
 % =====================================================================
-\section{Results I: intended success under a degraded initial guess}\label{sec:robust}
+\section{Results}
 % =====================================================================
+\subsection{Primary: intended success rate crosses over with guess quality}\label{sec:primary}
 
-\begin{figure}[h]
-\centering
-\includegraphics[width=\textwidth]{figures_new/fig_intended_success.pdf}
-\caption{\textbf{Primary result.} (a) Intended success rate (IRC-validated) and
-(b) convergence rate ($\nneg{=}1 \wedge \fmax{<}0.01$) vs.\ initial-guess noise,
-$n=287$. At low noise the methods coincide; as the guess degrades, the
-first-order GAD walk and the hybrid retain far more \emph{intended} reactions
-than the Sella baseline, even where raw convergence is comparable.}
+\begin{figure}[H]\centering
+\includegraphics[width=0.93\textwidth]{figures_new/fig_intended_success.pdf}
+\caption{\textbf{Primary (a) and secondary (b) axes vs.\ noise}, $n=287$.
+Methods coincide at low noise; GAD and the hybrid retain far more intended
+reactions as the guess degrades.}
 \label{fig:primary}
 \end{figure}
 
-% TODO (Results I/II framing): lead with the TREND + McNemar significance, not 200pm.
-% Tied <=50pm (p=1.0), emerges 100pm (+3.8pp, p~0.10), significant 150pm (+11.5, p<1e-4)
-% and 200pm (+21.6, p<1e-4). Numbers below are the report's dt005/best-of cells; the
-% NEW figures_new/ use fresh dt003-Cartesian IRC (within ~1pp). Reconcile which set to cite.
-The robustness story is summarized in Figure~\ref{fig:primary} and
-Table~\ref{tab:headline}. At low noise ($\le\!\SI{50}{pm}$) all methods behave
-similarly: the geometry already sits in the saddle's quadratic basin, every
-optimizer works, and the methods tie on intended success (88--89\% at
-\SI{10}{pm}). The Sella baseline even edges GAD on \emph{raw convergence}
-(92.7\% vs.\ 89.2\% at \SI{10}{pm}) because its Newton step crushes the residual
-force in a few iterations --- but, as we show below, a higher convergence rate
-does not translate into more intended reactions.
+\begin{figure}[H]\centering
+\includegraphics[width=0.66\textwidth]{figures_new/fig_intended_success_delta.pdf}
+\caption{\textbf{Intended success for all three methods; the GAD$-$Sella gap is
+shaded.} Paired-McNemar (GAD vs.\ Sella): indistinguishable
+$\le\!\SI{50}{pm}$ ($p{=}1.0$), emerging at \SI{100}{pm} ($p{=}0.10$), highly
+significant at \SI{150}{pm} ($p{=}3.8\!\times\!10^{-5}$) and \SI{200}{pm}
+($p{=}1.7\!\times\!10^{-13}$).}
+\label{fig:delta}
+\end{figure}
 
-\begin{table}[h]
-\centering\small
-\caption{\textbf{Headline result.} Intended success rate (IRC-validated, \%) and
-convergence rate (\%, $\fmax<0.01$), $n=287$, vs.\ initial-guess noise. GAD is
-the representative $dt=0.005$ configuration; Sella is the strongest baseline
-(Cartesian + Eckart, exact Hessian every step). $\Delta$ is the GAD advantage on
-intended success. Full nine-method tables: Appendix~\ref{app:fulltables}.}
+\begin{itemize}
+\item \textbf{Crossover.} Tie at low noise (intended 88--89\% at \SI{10}{pm};
+  Sella even leads on raw \emph{convergence}, 92.7 vs.\ 89.2\%); GAD pulls ahead
+  with degradation: $\Delta$intended $=+3.9,+11.5,+21.6$~pp at 100/150/\SI{200}{pm}
+  (Fig.~\ref{fig:delta}, Table~\ref{tab:headline}).
+\item \textbf{Significance.} McNemar on paired per-sample intended outcomes:
+  n.s.\ at $\le\!\SI{50}{pm}$ ($p{=}1.0$), emerging at \SI{100}{pm} ($p{=}0.10$),
+  highly significant at \SI{150}{pm} ($p{=}3.8\!\times\!10^{-5}$) and
+  \SI{200}{pm} ($p{=}1.7\!\times\!10^{-13}$). Same crossover on convergence and
+  across \fmax{} thresholds.
+\end{itemize}
+
+\begin{table}[H]\centering\small
+\caption{Intended success rate (primary) and convergence rate (secondary), \%,
+$\fmax<0.01$, $n=287$. Intended from the fresh per-sample IRC re-validation
+(GAD $dt{=}0.003$); Sella $=$ strongest baseline.}
 \label{tab:headline}
 \begin{tabular}{ll cccccc}
 \toprule
 & & \textbf{10\pm} & \textbf{30\pm} & \textbf{50\pm} & \textbf{100\pm} & \textbf{150\pm} & \textbf{200\pm} \\
 \midrule
-\multirow{2}{*}{\textbf{Intended success \%}}
- & GAD (ours)        & 88.9 & 89.2 & 88.9 & 78.0 & \textbf{61.7} & \textbf{44.6} \\
- & Sella (baseline)  & 89.2 & 89.2 & 87.5 & 72.5 & 49.8 & 23.3 \\
+\multirow{2}{*}{\textbf{Intended \%}}
+ & GAD (ours)       & 88.2 & 88.9 & 87.1 & 76.7 & \textbf{61.3} & \textbf{45.3} \\
+ & Sella (baseline) & 88.5 & 89.2 & 87.1 & 72.8 & 49.8 & 23.7 \\
+ & $\Delta$ (pp)    & $-0.3$ & $-0.3$ & $0.0$ & \textbf{+3.9} & \textbf{+11.5} & \textbf{+21.6} \\
 \midrule
- & $\Delta$ (GAD$-$Sella) & $-0.3$ & $0.0$ & $+1.4$ & \textbf{+5.5} & \textbf{+11.9} & \textbf{+21.3} \\
-\midrule
-\multirow{2}{*}{\textbf{Convergence \%}}
- & GAD (ours)        & 89.2 & 88.5 & 85.7 & 71.8 & 57.1 & 43.2 \\
- & Sella (baseline)  & \textbf{92.7} & \textbf{92.0} & \textbf{88.2} & 70.7 & 54.0 & 27.2 \\
+\multirow{2}{*}{\textbf{Conv.\ \%}}
+ & GAD (ours)       & 89.2 & 88.5 & 85.4 & 71.1 & 55.1 & 40.8 \\
+ & Sella (baseline) & \textbf{92.7} & \textbf{92.0} & \textbf{88.2} & 70.7 & 54.0 & 27.2 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-As the guess degrades the methods diverge sharply, and the divergence is
-\emph{largest on the metric that matters}. By \SI{200}{pm}, GAD recovers the
-intended reaction for 44.6\% of cases against the baseline's 23.3\% --- a
-\textbf{+21.3~pp} absolute improvement, i.e.\ GAD finds the intended TS nearly
-twice as often. The gap widens monotonically with difficulty: $+5.5$~pp at
-\SI{100}{pm}, $+11.9$~pp at \SI{150}{pm}, $+21.3$~pp at \SI{200}{pm}.
-
-Figure~\ref{fig:outcome} resolves the full IRC outcome distribution and makes
-the mechanism visible. As noise grows, the Sella baseline's \emph{unintended /
-failed} fraction (grey) balloons --- by \SI{200}{pm} it is the plurality outcome
---- whereas GAD and the hybrid keep most reactions \emph{intended} (teal) and
-convert the rest mostly into \emph{partially intended} (amber) near-misses
-rather than outright wrong reactions.
-% TODO: "unintended fraction balloons" is FALSE (unintended~=0). The grey band is
-% FAILED-TO-CONVERGE, not unintended. Sella's high-noise loss = more non-convergence
-% + more partial (one-sided), never wrong saddles. See FINDING_IRC_5TIER_2026_06_23.md.
-
-\begin{figure}[h]
-\centering
+\begin{figure}[H]\centering
 \includegraphics[width=\textwidth]{figures_new/fig_outcome_stacked.pdf}
-\caption{\textbf{IRC outcome breakdown vs.\ initial-guess degradation}
-($n=287$). Each bar splits the 287 reactions into \emph{intended} (teal),
-\emph{partially intended} (amber), and \emph{failed to converge} (grey).
-No method produces \emph{unintended} saddles at measurable rates; GAD and the
-hybrid retain a large intended fraction at high noise, while the Sella baseline's
-failed + partial fraction dominates by \SI{200}{pm}.}
+\caption{\textbf{Full IRC outcome breakdown.} \emph{Unintended} $\approx 0$ for
+every method at every noise, so the third band is purely non-convergence
+(TS error / no reaction). Sella both fails to converge \emph{and} lands one-sided
+(partial) saddles more often at high noise.}
 \label{fig:outcome}
 \end{figure}
 
-% =====================================================================
-\section{Results II: why the first-order walk recovers the intended reaction}
-% =====================================================================
-% TODO (REWRITE whole section per FINDING_IRC_5TIER_2026_06_23.md): unintended~=0
-% for all methods. Drop "Newton lands at the nearest saddle, often the wrong basin".
-% Correct mechanism: small in-basin steps preserve BOTH reaction channels (so even
-% non-converged GAD geometries IRC-validate both sides -> intended can exceed conv);
-% larger Newton steps drift off one channel (-> partial) or fail to tighten (-> failed).
-% At 200pm intended/partial/failed: GAD 130/89/68, Sella 68/101/116. The
-% "intended < convergence for Sella" gap is from PARTIAL (one-sided), not unintended.
+\begin{figure}[H]\centering
+\includegraphics[width=\textwidth]{figures_new/fig_outcome_stacked_counts.pdf}
+\caption{\textbf{Same breakdown, absolute counts (/287).} At \SI{200}{pm}:
+intended/partial/failed $=$ GAD 130/89/68 vs.\ Sella 68/101/116 --- Sella's loss
+is non-convergence (116 vs.\ 68) plus one-sided partial saddles (101 vs.\ 89).}
+\label{fig:outcomecounts}
+\end{figure}
 
-The mechanism is visible in how the methods fail. Classifying every
-non-converged GAD trajectory at \SI{200}{pm} by the character of its final
-geometry, the failures are dominated by in-basin near-misses: of 163 failures,
-71 (44\%) have drifted to a higher-order ($\nneg\!\ge\!2$) unintended saddle,
-while the remaining 92 (56\%) stay at or near a correct
-single-negative-eigenvalue geometry that simply did not tighten below threshold
---- the plateau orbit of Section~\ref{sec:fmax}. The Sella baseline fails the
-opposite way: its Newton step lands at \emph{the nearest} saddle, which from a
-poor guess is often in the wrong basin. The signature is the gap between
-convergence and intended success. At \SI{200}{pm} the baseline converges
-\emph{more confidently than it is right} --- its converged geometries include a
-large unintended fraction that the IRC rejects, so its intended rate (23.3\%)
-falls \emph{below} its convergence rate (27.2\%). GAD shows the reverse: its
-intended rate (44.6\%) \emph{exceeds} its convergence rate (43.2\%), because
-partially-converged geometries in the correct basin are validated by the IRC
-anyway. The same asymmetry appears in geometric quality
-(Section~\ref{sec:geom}): at \SI{200}{pm} the baseline develops a bimodal RMSD
-distribution with a \SI{0.84}{\AA} 95th-percentile tail of unintended saddles,
-while GAD and the hybrid stay unimodal and tight. Small Euler steps walk
-\emph{through} basins; large Newton jumps hop \emph{between} them. When the guess
-is good the distinction is invisible; when the guess is bad it is decisive.
+\subsection{Mechanism: it is not wrong basins --- it is one-sided saddles and non-convergence}\label{sec:mech}
 
-% =====================================================================
-\section{Results III: convergence and the \texorpdfstring{$\fmax$}{Fmax} plateau}\label{sec:fmax}
-% =====================================================================
+\begin{itemize}
+\item \textbf{Unintended $\approx 0$.} The per-sample 5-tier IRC split gives
+  unintended $\approx 0$ for every method at every noise: 0 for GAD and the
+  hybrid, and only 2 (\SI{150}{pm}) + 2 (\SI{200}{pm}) for Sella ---
+  \textbf{4 of 5166} samples total. \emph{We therefore drop the earlier ``Newton
+  jumps across basin boundaries to unintended saddles'' claim --- it is
+  unsupported by the data.}
+\item \textbf{What actually differs} (\SI{200}{pm} illustration; whole curves in
+  Fig.~\ref{fig:outcome}): intended/partial/failed $=$ \textbf{GAD 130/89/68}
+  vs.\ \textbf{Sella 68/101/116}. Sella both fails to converge more \emph{and}
+  lands one-sided (partial) saddles more.
+\item \textbf{Why.} Small in-basin Euler steps preserve the link to \emph{both}
+  reactant and product, so even non-converged GAD geometries IRC-validate on
+  both sides --- intended can \emph{exceed} convergence (\SI{150}{pm}: 61.3
+  vs.\ 55.1\%; \SI{200}{pm}: 45.3 vs.\ 40.8\%). Larger Newton steps more often
+  drift off one channel
+  ($\rightarrow$ partial) or fail to tighten ($\rightarrow$ failed).
+\item \textbf{Convergence $\ne$ chemistry, stated correctly} (Fig.~\ref{fig:d1d3}):
+  it is \emph{not} that convergence hides wrong saddles. (i) GAD recovers
+  intended even when not strictly converged; (ii) Sella d=1 vs.\ d=3 --- d=3
+  \emph{converges more} but is \emph{intended less} at every noise (a stale
+  Hessian yields more partial/failed, not unintended).
+\item \textbf{Non-converged GAD breakdown} (why it fails to \emph{converge}, not
+  why it finds a wrong saddle): at \SI{200}{pm}, of 163 non-converged, 71 (44\%)
+  drift to $\nneg\!\ge\!2$ and 92 (56\%) are plateau-orbits at $\nneg{=}1$ just
+  above threshold (Section~\ref{sec:fmax}).
+\end{itemize}
 
-The same simplicity that makes GAD robust imposes a hard limit on the secondary
-convergence axis, and we characterize it precisely because it motivates the
-hybrid and because it is the one place a reviewer will press.
+\begin{figure}[H]\centering
+\includegraphics[width=0.82\textwidth]{figures_new/fig_d1_vs_d3.pdf}
+\caption{\textbf{Convergence $\ne$ chemistry.} Sella Hess.Freq.=3 converges more
+than Hess.Freq.=1 at low noise (a) yet recovers fewer intended reactions at
+every noise (b): the extra ``convergences'' are one-sided (partial) saddles, not
+unintended ones.}
+\label{fig:d1d3}
+\end{figure}
 
-\paragraph{The plateau.} Figure~\ref{fig:plateau} plots convergence as the force
-threshold $\tau$ tightens. Every method holds up well down to $\tau=0.01$. Below
-that the behavior bifurcates. The Sella baseline descends smoothly, retaining
-24--34\% of cases at $\tau=0.005$ (low noise) because its Newton step continues
-to drive the force down. \textbf{GAD collapses to a vertical cliff: all three
-$dt$ values reach 0.0\% at $\tau<0.005$ across every noise level.} Pure
-first-order dynamics simply has no samples in the
-\SIrange{0.001}{0.005}{eV/\AA} band.
+\begin{figure}[H]\centering
+\includegraphics[width=0.78\textwidth]{figures_new/fig_outcome_grouped_intended.pdf}
+\caption{\textbf{Intended reactions recovered (counts/287).} The GAD family
+overtakes the baseline from \SI{100}{pm} onward.}
+\label{fig:grouped}
+\end{figure}
 
-\begin{figure}[h]
-\centering
-\includegraphics[width=\textwidth]{figures_new/fig_fmax_plateau.pdf}
-\caption{\textbf{The $\fmax$ plateau} (convergence rate vs.\ threshold
-tightness; threshold tightens to the right, log scale; shaded = plateau zone).
-At both \SI{50}{pm} and \SI{150}{pm} noise, GAD drops vertically near
-$\fmax=0.01$, while the Sella baseline and the hybrid descend into $0.005$ via
-Newton landing. No method reaches $0.001$ within the step budget.}
+\subsection{Secondary: the \texorpdfstring{$\fmax$}{Fmax} plateau (and why it does not matter for chemistry)}\label{sec:fmax}
+
+\begin{itemize}
+\item \textbf{Plateau.} All GAD $dt$ collapse to 0\% at $\fmax<0.005$ at every
+  noise; Sella's Newton step retains 24--34\% (low noise). Pure first-order
+  dynamics has no samples in \SIrange{0.001}{0.005}{eV/\AA} (Figs.~\ref{fig:plateau},
+  \ref{fig:grid}).
+\item \textbf{Mechanism.} GAD step $\sim dt\,\lVert\mathbf{F}\rVert$ shrinks
+  linearly as $\mathbf{F}\!\to\!0$ and falls below the eigenvector noise floor;
+  Newton $\sim\lVert\mathbf{H}^{-1}\mathbf{F}\rVert$ stays finite. Structural to
+  fixed-step first-order dynamics; larger $dt$ trades it for instability.
+\item \textbf{Intrinsic.} $5\times$ budget (10k vs.\ 2k steps, \SI{50}{pm})
+  leaves $\tau{=}0.01$ unchanged (85.7\%) and $\tau{<}0.005$ exactly 0.0\%.
+\item \textbf{It lives on the secondary axis.} Intended success
+  (Section~\ref{sec:primary}) needs no sub-plateau force, so the plateau does
+  not affect the primary metric.
+\end{itemize}
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.92\textwidth]{figures_new/fig_fmax_plateau.pdf}
+\caption{\textbf{The $\fmax$ plateau} (convergence vs.\ threshold; tighter to the
+right). GAD drops vertically near $0.01$; Sella and the hybrid descend into
+$0.005$ via Newton landing.}
 \label{fig:plateau}
 \end{figure}
 
-\paragraph{Mechanism.} The plateau follows from Eq.~\eqref{eq:gad}. Near the
-saddle the magnitude of a GAD step is
-$\lVert dt\,\mathbf{F}_{\mathrm{GAD}}\rVert \sim dt\,\lVert\mathbf{F}\rVert$: it
-shrinks \emph{linearly} as the force shrinks. Once $\fmax$ falls to
-$\approx\!0.01\evA$, the step drops below the numerical noise floor of the
-soft-mode eigenvector and the trajectory orbits the saddle rather than tightening
-onto it. A Newton step behaves oppositely: its size scales as
-$\lVert\mathbf{H}^{-1}\mathbf{F}\rVert \sim \lVert\mathbf{F}\rVert/|\lambda|$,
-which stays finite as $\mathbf{F}\to 0$. The plateau is thus structural to any
-fixed-step first-order saddle dynamics; raising $dt$ trades it for instability
-rather than removing it.
-
-\paragraph{It is intrinsic, not a budget limit.} Re-running the \SI{50}{pm} cell
-with a $5\times$ step budget (10{,}000 vs.\ 2{,}000 steps) targeting
-$\tau=0.001$ leaves GAD's convergence at $\tau=0.01$ unchanged (85.7\% at both
-budgets) and its convergence at $\tau<0.005$ \textbf{exactly 0.0\%}. Five times
-the budget buys zero ground below the plateau. By contrast, Newton-based methods
-given the same budget reach 47--77\% at $\tau=0.005$ (hybrid 47.2\%, $n=72$;
-Sella 77.3\%, $n=66$; partial cells, SLURM timeout). The plateau is a property
-of the step, not the schedule. Crucially, it lives on the \emph{secondary}
-(convergence) axis: GAD's intended success (Section~\ref{sec:robust}) is
-unaffected, because intended recovery does not require sub-plateau forces.
-
-% =====================================================================
-\section{Results IV: the hybrid wins cost and geometry}\label{sec:hybrid}
-% =====================================================================
-
-If the plateau is caused by the GAD step starving near the saddle, the remedy is
-to use the GAD step only where it is good --- far from the saddle, where its
-in-basin robustness is decisive --- and hand off to a Newton step exactly where
-GAD starves (Section~\ref{sec:hybridmethod}). Because the Newton phase fires only
-after GAD has placed the geometry in the correct basin, the hybrid keeps GAD's
-chemistry: its intended success tracks GAD's (Table~\ref{tab:headline2}) rather
-than the baseline's, and a dedicated strict Newton-polish test reaches 31.2\% at
-$\tau=0.005$ and 1.2\% at $\tau=0.001$ --- the only configuration tested that
-converges at the Sella documentation threshold (Appendix~\ref{app:nr}).
-
-\begin{table}[h]
-\centering\small
-\caption{Hybrid GAD--Newton vs.\ GAD and the Sella baseline: intended success
-rate (\%), $n=287$. The hybrid inherits GAD's chemistry, not the baseline's.}
-\label{tab:headline2}
-\begin{tabular}{l cccccc}
-\toprule
-\textbf{Intended success \%} & \textbf{10\pm} & \textbf{30\pm} & \textbf{50\pm} & \textbf{100\pm} & \textbf{150\pm} & \textbf{200\pm} \\
-\midrule
-GAD (ours)                 & 88.9 & 89.2 & 88.9 & 78.0 & 61.7 & 44.6 \\
-Hybrid GAD--Newton (ours)  & 89.2 & 88.9 & 88.9 & 76.7 & 57.5 & 38.7 \\
-Sella (baseline)           & 89.2 & 89.2 & 87.5 & 72.5 & 49.8 & 23.3 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\paragraph{It wins wall-time.} The hybrid is also the fastest method on this
-benchmark (Figure~\ref{fig:cost}, Table~\ref{tab:cost}). The Sella baseline
-converges in few steps (4--13) but each step is expensive (full Hessian
-recompute + diagonalization + trust-region solve). GAD takes many cheap steps
-(100--738). The hybrid takes an intermediate number of cheap steps and pays for
-no trust-region overhead, giving the lowest wall-time per converged TS at
-\emph{every} noise level: $1.3$--$3.0\times$ faster than the Sella baseline and
-$3.6$--$4.5\times$ faster than plain GAD, with the advantage growing as the
-problem gets harder ($3.0\times$ vs.\ Sella at \SI{200}{pm}).
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.7\textwidth]{figures_new/fig_walltime.pdf}
-\caption{\textbf{Cost: wall-time per converged TS} vs.\ noise (log scale,
-$\fmax<0.01$, $n=287$). The hybrid is fastest at every noise level despite
-taking more steps than Sella, because its steps are cheap.}
-\label{fig:cost}
+\begin{figure}[H]\centering
+\includegraphics[width=0.95\textwidth]{figures_new/fig_fmax_plateau_grid.pdf}
+\caption{\textbf{Convergence vs.\ $\fmax$ threshold, all six noise levels.} The
+GAD cliff at $0.005$ is universal.}
+\label{fig:grid}
 \end{figure}
 
-\begin{table}[h]
-\centering\small
-\caption{Wall-time per converged TS (s) and median converged-step count,
+\subsection{Cost and geometry: the hybrid wins both}\label{sec:cost}
+
+\begin{itemize}
+\item \textbf{Wall-time / converged TS:} hybrid lowest at every noise ---
+  $1.3$--$3.0\times$ vs.\ Sella, $3.6$--$4.5\times$ vs.\ GAD (Fig.~\ref{fig:wall},
+  Table~\ref{tab:cost}). Few-but-expensive Sella steps (4--13) vs.\
+  many-cheap GAD steps (100--738) vs.\ intermediate-cheap hybrid (6--95)
+  (Fig.~\ref{fig:steps}). Pareto-dominant at high noise (Fig.~\ref{fig:pareto}).
+\item \textbf{Geometry:} converged-TS RMSD-to-reference --- hybrid holds the
+  tightest p95 at high noise (\SI{200}{pm}: \textbf{0.109} vs.\ GAD 0.456 vs.\
+  Sella 0.838~\AA; $7.7\times$ tighter than Sella). Sella's tail is bimodal
+  (Fig.~\ref{fig:rmsd}, Table~\ref{tab:rmsd}).
+\end{itemize}
+
+\begin{figure}[H]\centering
+\begin{minipage}{0.49\textwidth}\centering
+\includegraphics[width=\textwidth]{figures_new/fig_walltime.pdf}\end{minipage}\hfill
+\begin{minipage}{0.49\textwidth}\centering
+\includegraphics[width=\textwidth]{figures_new/fig_steps.pdf}\end{minipage}
+\caption{\textbf{Cost.} Wall-time per converged TS (left) and median steps
+(right). The hybrid is fastest despite more steps than Sella, because its steps
+are cheap.}
+\label{fig:wall}\label{fig:steps}
+\end{figure}
+
+\begin{figure}[H]\centering
+\begin{minipage}{0.46\textwidth}\centering
+\includegraphics[width=\textwidth]{figures_new/fig_pareto.pdf}\end{minipage}\hfill
+\begin{minipage}{0.52\textwidth}\centering
+\includegraphics[width=\textwidth]{figures_new/fig_rmsd_vs_noise.pdf}\end{minipage}
+\caption{\textbf{Left: Pareto} (intended vs.\ wall-time; up-left is better) ---
+the hybrid is dominant at high noise. \textbf{Right: RMSD to true TS} (median and
+p95) --- the hybrid holds the tightest tail.}
+\label{fig:pareto}\label{fig:rmsd}
+\end{figure}
+
+\begin{table}[H]\centering\small
+\caption{Wall-time per converged TS (s) and converged-TS RMSD (\AA, p95),
 $\fmax<0.01$, $n=287$.}
-\label{tab:cost}
+\label{tab:cost}\label{tab:rmsd}
 \begin{tabular}{ll cccccc}
 \toprule
 & & \textbf{10\pm} & \textbf{30\pm} & \textbf{50\pm} & \textbf{100\pm} & \textbf{150\pm} & \textbf{200\pm} \\
 \midrule
 \multirow{3}{*}{\textbf{wall/conv (s)}}
- & \textbf{Hybrid (ours)} & \textbf{11.0} & \textbf{12.0} & \textbf{15.7} & \textbf{34.9} & \textbf{65.0} & \textbf{130.7} \\
- & Sella (baseline)       & 14.5 & 15.8 & 23.2 & 65.2 & 132.6 & 393.8 \\
- & GAD                    & 47.7 & 57.1 & 74.3 & 156.0 & 278.5 & 472.3 \\
+ & \textbf{Hybrid} & \textbf{11.0} & \textbf{12.0} & \textbf{15.7} & \textbf{34.9} & \textbf{65.0} & \textbf{130.7} \\
+ & Sella           & 14.5 & 15.8 & 23.2 & 65.2 & 132.6 & 393.8 \\
+ & GAD             & 47.7 & 57.1 & 74.3 & 156.0 & 278.5 & 472.3 \\
 \midrule
-\multirow{3}{*}{\textbf{median steps}}
- & Hybrid (ours)    & 6 & 12 & 19 & 37 & 61 & 95 \\
- & Sella (baseline) & 4 & 6 & 7 & 9 & 11 & 13 \\
- & GAD              & 100 & 204 & 278 & 458 & 614 & 738 \\
+\multirow{3}{*}{\textbf{p95 RMSD (\AA)}}
+ & \textbf{Hybrid} & 0.047 & 0.047 & 0.049 & \textbf{0.055} & \textbf{0.062} & \textbf{0.109} \\
+ & Sella           & 0.073 & 0.071 & 0.072 & 0.201 & 0.617 & 0.838 \\
+ & GAD             & 0.018 & 0.021 & 0.028 & 0.044 & 0.088 & 0.456 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\paragraph{It produces the tightest geometries.}\label{sec:geom} Measured as
-RMSD to the labelled TS over converged samples, all methods are tight at low
-noise. At \SI{200}{pm} the picture separates dramatically in the tail
-(Table~\ref{tab:rmsd}, Figure~\ref{fig:rmsd}): the Sella baseline develops a
-bimodal distribution with a 95th-percentile RMSD of \SI{0.838}{\AA} (the
-unintended-saddle tail), plain GAD reaches \SI{0.456}{\AA}, and the hybrid holds
-\SI{0.109}{\AA} --- \textbf{$7.7\times$ tighter than the baseline and
-$4.2\times$ tighter than plain GAD}. This is the one axis where the hybrid also
-beats plain GAD: Newton's pose-crushing is unique to it.
+\subsection{Scope boundary: GAD needs to start near the saddle}\label{sec:scope}
 
-\begin{table}[h]
-\centering\small
-\caption{RMSD between the converged TS and the labelled Transition1x TS (Kabsch
-+ Hungarian; converged samples only).}
-\label{tab:rmsd}
-\begin{tabular}{l cc cc cc}
-\toprule
-& \multicolumn{2}{c}{\textbf{Sella (baseline)}} & \multicolumn{2}{c}{\textbf{GAD}} & \multicolumn{2}{c}{\textbf{Hybrid (ours)}} \\
-\textbf{noise} & med & p95 & med & p95 & med & p95 \\
-\midrule
-10\pm  & 0.008 & 0.073 & 0.005 & 0.018 & 0.007 & 0.047 \\
-50\pm  & 0.009 & 0.072 & 0.011 & 0.028 & 0.007 & 0.049 \\
-100\pm & 0.009 & 0.201 & 0.014 & 0.044 & \textbf{0.008} & \textbf{0.055} \\
-150\pm & 0.013 & 0.617 & 0.016 & 0.088 & \textbf{0.007} & \textbf{0.062} \\
-200\pm & 0.017 & 0.838 & 0.014 & 0.456 & \textbf{0.008} & \textbf{0.109} \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{itemize}
+\item Robustness above is for \emph{perturbed-saddle} guesses. From a
+  \emph{reactant} start the GAD family is weak: hybrid $\sim$\textbf{2\%},
+  GAD $dt{=}0.005$ 54\% (partial $n$), while Sella reaches 81\%
+  (Fig.~\ref{fig:scope}).
+\item Interpretation: far from the saddle the reaction mode is not yet
+  identifiable as the lowest Eckart-projected eigenvector, so the GAD reflection
+  has no correct direction to climb. GAD/hybrid are TS \emph{refiners} given a
+  near-saddle guess, not single-ended searchers from a minimum.
+\end{itemize}
 
-\begin{figure}[h]
-\centering
-\includegraphics[width=\textwidth]{figures_2026_05_16/fig_rmsd_to_ts.pdf}
-\caption{\textbf{RMSD distributions of converged TSs} vs.\ the labelled
-reference (CDFs, converged samples only). At \SI{200}{pm} the hybrid rises
-sharply at low RMSD while the Sella baseline and GAD extend past
-\SI{0.5}{\AA}. Dashed line: the \SI{0.3}{\AA} intended-match cutoff.}
-\label{fig:rmsd}
+\begin{figure}[H]\centering
+\includegraphics[width=0.52\textwidth]{figures_new/fig_reactant_scope.pdf}
+\caption{\textbf{Scope boundary.} Convergence from a reactant start: Sella wins;
+the GAD family needs a near-saddle guess.}
+\label{fig:scope}
 \end{figure}
 
 % =====================================================================
-\section{Discussion and conclusion}
+\section{Discussion}
 % =====================================================================
-
-The conventional reading of TS optimization is that more curvature information,
-applied through a more sophisticated quasi-Newton step, yields a better
-optimizer. Our results invert that reading in the regime MLIPs have made common.
-When the analytic Hessian is cheap, the limiting factor is not how much curvature
-you have but how you spend it, and the sophisticated step --- the large
-trust-region Newton jump --- is precisely what fails when the initial guess is
-poor, because it jumps across basin boundaries and converges, with full
-confidence, to an unintended saddle. A deliberately minimal first-order GAD walk
-avoids that failure by construction: it is more robust on the metric that
-matters (+21.3~pp intended success at \SI{200}{pm}), ties at low noise, and ---
-in its hybrid form --- is faster and geometrically tighter than the standard
-baseline at every noise level.
-% TODO: same correction as Results II — no unintended saddles; recast as
-% recover-both-channels vs partial/non-convergence; cite the trend not 200pm.
-
-We have also been explicit about the cost of simplicity. First-order dynamics
-cannot tighten the maximum force below a plateau near $\approx\!0.01\evA$, and no
-step budget removes it. But this plateau lives on the secondary convergence axis,
-not the primary intended-success axis, and the hybrid removes it where it matters
-by switching to a Newton step exactly in the regime where GAD starves ---
-recovering sub-plateau convergence while keeping GAD's in-basin robustness,
-because the switch happens only after the geometry is already in the right basin.
-
-\paragraph{Practical guidance.} For high-throughput reaction discovery, where
-initial guesses are imperfect and the chemically intended TS is what matters, the
-GAD family is the more reliable choice, and the Hybrid GAD--Newton optimizer is
-the recommended default: it is the fastest method on this benchmark, the most
-chemically reliable at high noise, and the most geometrically precise.
-
-\paragraph{Limitations.} The benchmark perturbs the true saddle to isolate the
-optimizer's basin of attraction; guesses from interpolation or templates carry
-structured rather than isotropic error, and confirming the same ranking there is
-future work. Convergence below $\tau=0.001$ remains out of reach for all methods
-on this surface within practical budgets. Finally, the hybrid's Newton trigger is
-gated only on a single-negative-eigenvalue test; gating additionally on
-eigenvector continuity is expected to further reduce the residual unintended
-rate.
-% TODO (limitations): we DO have reactant/midpoint data — from a reactant start
-% GAD/hybrid are weak and Sella wins (scope boundary), not pure future work.
+\begin{itemize}
+\item When the analytic Hessian is cheap, the limiting factor is the step, not
+  the curvature budget. A minimal first-order GAD walk is more robust on the
+  metric that matters (intended success) precisely where large Newton/RFO jumps
+  fail --- under a degraded guess --- while tying at low noise.
+\item The failure is \emph{not} wrong basins: across all methods, converged
+  geometries essentially never connect the wrong reaction. The high-noise gap is
+  non-convergence plus one-sided (partial) saddles, which the small in-basin
+  Euler step avoids.
+\item \textbf{Recommended default:} Hybrid GAD--Newton --- fastest per converged
+  TS, geometrically tightest, and chemically as reliable as GAD --- for
+  near-saddle (refinement) guesses.
+\item \textbf{Limitations:} (i) demonstrated for perturbed-saddle guesses; from a
+  reactant start the GAD family is weak and Sella wins (Section~\ref{sec:scope}).
+  (ii) Convergence below $\tau{=}0.001$ is unreachable for all methods here.
+  (iii) Isotropic perturbations; template/interpolation guesses carry structured
+  error (future work).
+\end{itemize}
 
 \appendix
-\section*{\Large Appendix}
+\section*{\large Appendix}
 \addcontentsline{toc}{section}{Appendix}
 
-% =====================================================================
-\section{Full tables (all methods)}\label{app:fulltables}
-% =====================================================================
-
-Tables~\ref{tab:apptopo} and~\ref{tab:appconv} give the intended success rate
-and the convergence rate for all nine configurations at the headline criterion
-$\fmax<0.01$, $n=287$. Bold marks the best value in each column.
-
-\begin{table}[h]
-\centering\footnotesize
-\caption{Intended success rate \% (IRC two-endpoint graph match, $n=287$).}
-\label{tab:apptopo}
+\section{Full tables (all nine configurations, $\fmax<0.01$, $n=287$)}\label{app:fulltables}
+\begin{table}[H]\centering\footnotesize
+\caption{Intended success rate \% (top) and convergence rate \% (bottom), all
+nine configurations, from the aggregate IRC sweep. Bold = column best. The three
+headline methods (GAD, Sella cart+Eckart untuned d=1, Hybrid damped) were
+independently re-validated per-sample (\texttt{FINDING\_IRC\_5TIER\_2026\_06\_23};
+\texttt{irc\_outcomes\_5tier\_test287.csv}); main-text numbers use that fresh
+re-validation and differ here by $\le$2~pp, with unintended $\approx 0$ confirmed.}
 \begin{tabular}{l cccccc}
 \toprule
-\textbf{method} & \textbf{10\pm} & \textbf{30\pm} & \textbf{50\pm} & \textbf{100\pm} & \textbf{150\pm} & \textbf{200\pm} \\
+\textbf{Intended \%} & \textbf{10\pm} & \textbf{30\pm} & \textbf{50\pm} & \textbf{100\pm} & \textbf{150\pm} & \textbf{200\pm} \\
 \midrule
 GAD $dt=0.003$ & 88.5 & \textbf{89.2} & \textbf{88.9} & \textbf{78.4} & 61.0 & \textbf{44.6} \\
 GAD $dt=0.005$ & 88.9 & \textbf{89.2} & \textbf{88.9} & 78.0 & \textbf{61.7} & \textbf{44.6} \\
 GAD $dt=0.007$ & 88.5 & 88.5 & 88.5 & \textbf{78.4} & \textbf{61.7} & 43.9 \\
+Sella cart tuned d=1          & 88.9 & 88.9 & 87.5 & 70.7 & 46.7 & 17.8 \\
+Sella cart+Eck untuned d=1    & \textbf{89.2} & \textbf{89.2} & 87.5 & 72.5 & 49.8 & 23.3 \\
+Sella internal tuned d=1      & 88.2 & 87.5 & 83.3 & 64.5 & 33.1 & 16.0 \\
+Sella cart+Eck untuned d=3    & 88.5 & 88.9 & 87.1 & 70.4 & 45.3 & 22.0 \\
+Hybrid damped Eckart tr=0.05  & \textbf{89.2} & 88.9 & \textbf{88.9} & 76.7 & 57.5 & 38.7 \\
+Hybrid undamped Eckart tr=0.05& 88.9 & 88.9 & 88.5 & 77.0 & 57.1 & 38.7 \\
 \midrule
-Sella cartesian tuned Hess.Freq.=1          & 88.9 & 88.9 & 87.5 & 70.7 & 46.7 & 17.8 \\
-Sella cartesian Eckart untuned Hess.Freq.=1 & \textbf{89.2} & \textbf{89.2} & 87.5 & 72.5 & 49.8 & 23.3 \\
-Sella internal tuned Hess.Freq.=1           & 88.2 & 87.5 & 83.3 & 64.5 & 33.1 & 16.0 \\
-Sella cartesian Eckart untuned Hess.Freq.=3 & 88.5 & 88.9 & 87.1 & 70.4 & 45.3 & 22.0 \\
-\midrule
-Hybrid damped Eckart eig tr=0.05   & \textbf{89.2} & 88.9 & \textbf{88.9} & 76.7 & 57.5 & 38.7 \\
-Hybrid undamped Eckart eig tr=0.05 & 88.9 & 88.9 & 88.5 & 77.0 & 57.1 & 38.7 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{table}[h]
-\centering\footnotesize
-\caption{Convergence rate \% ($\nneg=1 \wedge \fmax<0.01$, $n=287$).}
-\label{tab:appconv}
-\begin{tabular}{l cccccc}
-\toprule
-\textbf{method} & \textbf{10\pm} & \textbf{30\pm} & \textbf{50\pm} & \textbf{100\pm} & \textbf{150\pm} & \textbf{200\pm} \\
+\textbf{Convergence \%} & & & & & & \\
 \midrule
 GAD $dt=0.003$ & 89.2 & 88.5 & 85.4 & 71.1 & 55.1 & 40.8 \\
 GAD $dt=0.005$ & 89.2 & 88.5 & 85.7 & 71.8 & 57.1 & 43.2 \\
 GAD $dt=0.007$ & 89.2 & 88.9 & 85.7 & \textbf{72.8} & \textbf{58.2} & \textbf{44.6} \\
-\midrule
-Sella cartesian tuned Hess.Freq.=1          & 92.0 & 91.3 & 87.5 & 65.5 & 42.9 & 18.8 \\
-Sella cartesian Eckart untuned Hess.Freq.=1 & 92.7 & 92.0 & 88.2 & 70.7 & 54.0 & 27.2 \\
-Sella internal tuned Hess.Freq.=1           & 79.1 & 77.4 & 71.8 & 50.9 & 26.8 & 13.9 \\
-Sella cartesian Eckart untuned Hess.Freq.=3 & \textbf{96.5} & \textbf{95.5} & \textbf{92.0} & \textbf{72.8} & 50.5 & 23.3 \\
-\midrule
-Hybrid damped Eckart eig tr=0.05   & 85.4 & 85.0 & 81.5 & 66.9 & 50.9 & 33.1 \\
-Hybrid undamped Eckart eig tr=0.05 & 84.7 & 84.3 & 81.5 & 65.5 & 49.8 & 31.0 \\
+Sella cart tuned d=1          & 92.0 & 91.3 & 87.5 & 65.5 & 42.9 & 18.8 \\
+Sella cart+Eck untuned d=1    & 92.7 & 92.0 & 88.2 & 70.7 & 54.0 & 27.2 \\
+Sella internal tuned d=1      & 79.1 & 77.4 & 71.8 & 50.9 & 26.8 & 13.9 \\
+Sella cart+Eck untuned d=3    & \textbf{96.5} & \textbf{95.5} & \textbf{92.0} & \textbf{72.8} & 50.5 & 23.3 \\
+Hybrid damped Eckart tr=0.05  & 85.4 & 85.0 & 81.5 & 66.9 & 50.9 & 33.1 \\
+Hybrid undamped Eckart tr=0.05& 84.7 & 84.3 & 81.5 & 65.5 & 49.8 & 31.0 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\paragraph{Note on the fresh test-287 IRC (2026-06-23).} The figures in
-\texttt{figures\_new/} are built from a fresh IRC re-validation
-(\texttt{sella\_hip}, all endpoints) of GAD ($dt{=}0.003$, Cartesian step),
-the hybrid, and the Sella baseline; per-sample tiers are in
-\texttt{analysis\_2026\_04\_29/irc\_outcomes\_5tier\_test287.csv}. That run shows
-\textbf{unintended $\approx$ 0 for every method} (4 of 5166 samples) and confirms
-the intended-success values above to within $\sim$1~pp. McNemar paired tests
-(GAD vs.\ Sella): indistinguishable at $\le\!\SI{50}{pm}$ ($p=1.0$), a trend at
-\SI{100}{pm} ($p\!\approx\!0.10$), and significant at \SI{150}{pm} and
-\SI{200}{pm} ($p<10^{-4}$).
-
-% =====================================================================
-\section{Comprehensive \texorpdfstring{$\fmax$}{Fmax} threshold sweep}\label{app:fmaxtable}
-% =====================================================================
-
-Convergence rate \% for all nine methods across five force thresholds and six
-noise levels ($n=287$). The defining feature is the GAD block at $\fmax<0.005$:
-uniformly 0.0\%, the signature of the plateau (Section~\ref{sec:fmax}).
-
-\begin{table}[h]
-\centering\footnotesize
-\caption{$\fmax<0.05$ (ASE default).}
-\begin{tabular}{l cccccc}
+\section{Comprehensive \texorpdfstring{$\fmax$}{Fmax} sweep (convergence \%, $n=287$)}\label{app:fmaxtable}
+\begin{table}[H]\centering\footnotesize
+\caption{Convergence at five thresholds; GAD block is 0.0\% at $\fmax<0.005$ everywhere.}
+\begin{tabular}{ll cccccc}
 \toprule
-\textbf{method} & \textbf{10\pm} & \textbf{30\pm} & \textbf{50\pm} & \textbf{100\pm} & \textbf{150\pm} & \textbf{200\pm} \\
+\textbf{thr} & \textbf{method} & \textbf{10\pm} & \textbf{30\pm} & \textbf{50\pm} & \textbf{100\pm} & \textbf{150\pm} & \textbf{200\pm} \\
 \midrule
-GAD $dt=0.003$ & \textbf{98.6} & \textbf{98.3} & \textbf{95.1} & 82.9 & \textbf{71.8} & 62.7 \\
-GAD $dt=0.005$ & 98.3 & 97.9 & 94.8 & 82.6 & 71.1 & 63.1 \\
-GAD $dt=0.007$ & 98.3 & 97.9 & 94.8 & 82.6 & 71.4 & \textbf{68.3} \\
-Sella cart tuned d=1        & \textbf{98.6} & 97.9 & 94.4 & 78.0 & 53.7 & 27.9 \\
-Sella cart+Eck untuned d=1  & \textbf{98.6} & \textbf{98.3} & \textbf{95.1} & \textbf{83.3} & 66.2 & 46.0 \\
-Sella internal tuned d=1    & 94.4 & 90.6 & 84.7 & 63.8 & 37.3 & 20.9 \\
-Sella cart+Eck untuned d=3  & \textbf{98.6} & 97.6 & 94.8 & 81.5 & 58.2 & 39.7 \\
-Hybrid damped   & 97.2 & 96.9 & 93.0 & 78.0 & 59.6 & 44.9 \\
-Hybrid undamped & 96.5 & 96.2 & 92.7 & 76.7 & 59.6 & 43.9 \\
+\multirow{3}{*}{0.05}
+ & GAD $dt{=}0.005$ & 98.3 & 97.9 & 94.8 & 82.6 & 71.1 & 63.1 \\
+ & Sella d=1        & 98.6 & 98.3 & 95.1 & 83.3 & 66.2 & 46.0 \\
+ & Hybrid damped    & 97.2 & 96.9 & 93.0 & 78.0 & 59.6 & 44.9 \\
+\midrule
+\multirow{3}{*}{0.01}
+ & GAD $dt{=}0.005$ & 89.2 & 88.5 & 85.7 & 71.8 & 57.1 & 43.2 \\
+ & Sella d=1        & 92.7 & 92.0 & 88.2 & 70.7 & 54.0 & 27.2 \\
+ & Hybrid damped    & 85.4 & 85.0 & 81.5 & 66.9 & 50.9 & 33.1 \\
+\midrule
+\multirow{3}{*}{0.005}
+ & GAD $dt{=}0.005$ & \textbf{0.0} & \textbf{0.0} & \textbf{0.0} & \textbf{0.0} & \textbf{0.0} & \textbf{0.0} \\
+ & Sella d=1        & 33.8 & 32.1 & 32.4 & 24.7 & 15.3 & 7.0 \\
+ & Hybrid damped    & 7.3 & 9.4 & 10.8 & 9.1 & 7.0 & 6.6 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{table}[h]
-\centering\footnotesize
-\caption{$\fmax<0.01$ (project canonical / headline).}
-\begin{tabular}{l cccccc}
-\toprule
-\textbf{method} & \textbf{10\pm} & \textbf{30\pm} & \textbf{50\pm} & \textbf{100\pm} & \textbf{150\pm} & \textbf{200\pm} \\
-\midrule
-GAD $dt=0.003$ & 89.2 & 88.5 & 85.4 & 71.1 & 55.1 & 40.8 \\
-GAD $dt=0.005$ & 89.2 & 88.5 & 85.7 & 71.8 & 57.1 & 43.2 \\
-GAD $dt=0.007$ & 89.2 & 88.9 & 85.7 & \textbf{72.8} & \textbf{58.2} & \textbf{44.6} \\
-Sella cart tuned d=1        & 92.0 & 91.3 & 87.5 & 65.5 & 42.9 & 18.8 \\
-Sella cart+Eck untuned d=1  & \textbf{92.7} & \textbf{92.0} & \textbf{88.2} & 70.7 & 54.0 & 27.2 \\
-Sella internal tuned d=1    & 79.1 & 77.4 & 71.8 & 50.9 & 26.8 & 13.9 \\
-Sella cart+Eck untuned d=3  & 91.3 & 90.2 & \textbf{88.2} & 67.9 & 48.1 & 23.3 \\
-Hybrid damped   & 85.4 & 85.0 & 81.5 & 66.9 & 50.9 & 33.1 \\
-Hybrid undamped & 84.7 & 84.3 & 81.5 & 65.5 & 49.8 & 31.0 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\section{Convergence-criterion family}\label{app:crit}
+Force thresholds (\si{eV/\AA}): ASE default 0.05; Gaussian ``Normal'' max-force
+0.0231 ($4.50\!\times\!10^{-4}E_h/a_0$); project canonical 0.01; tight 0.005;
+Sella documentation 0.001. \fmax{} = maximum force component on any atom.
 
-\begin{table}[h]
-\centering\footnotesize
-\caption{$\fmax<0.005$ (tight) --- the plateau cliff. Every GAD row is 0.0\%.}
-\begin{tabular}{l cccccc}
-\toprule
-\textbf{method} & \textbf{10\pm} & \textbf{30\pm} & \textbf{50\pm} & \textbf{100\pm} & \textbf{150\pm} & \textbf{200\pm} \\
-\midrule
-GAD $dt=0.003$ & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 \\
-GAD $dt=0.005$ & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 \\
-GAD $dt=0.007$ & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 \\
-Sella cart tuned d=1        & \textbf{35.9} & \textbf{33.1} & \textbf{34.1} & 22.3 & \textbf{15.7} & 5.6 \\
-Sella cart+Eck untuned d=1  & 33.8 & 32.1 & 32.4 & 24.7 & 15.3 & \textbf{7.0} \\
-Sella internal tuned d=1    & 25.4 & 25.1 & 27.9 & 16.0 & 9.4 & 4.2 \\
-Sella cart+Eck untuned d=3  & 33.4 & 31.7 & 32.1 & \textbf{25.8} & 15.0 & \textbf{7.0} \\
-Hybrid damped   & 7.3 & 9.4 & 10.8 & 9.1 & 7.0 & 6.6 \\
-Hybrid undamped & 8.7 & 6.6 & 8.7 & 3.8 & 4.2 & 1.4 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-At $\fmax<0.001$ (Sella documentation), no method exceeds 0.3\% on this surface
-within the 2{,}000-step budget; the row is omitted.
-
-% =====================================================================
-\section{Convergence-criterion details}\label{app:crit}
-% =====================================================================
-
-Gaussian's default geometry-convergence test requires four criteria
-simultaneously; we list them with conversions for cross-program comparison.
-
-\begin{table}[h]
-\centering\footnotesize
-\begin{tabular}{l r r}
-\toprule
-\textbf{Criterion} & \textbf{Threshold (a.u.)} & \textbf{Converted} \\
-\midrule
-Maximum force        & $4.50\times10^{-4}\,E_h/a_0$ & \SI{0.02314}{eV/\AA} \\
-RMS force            & $3.00\times10^{-4}\,E_h/a_0$ & \SI{0.01543}{eV/\AA} \\
-Maximum displacement & $1.80\times10^{-3}\,a_0$     & \SI{9.525e-4}{\AA}  \\
-RMS displacement     & $1.20\times10^{-3}\,a_0$     & \SI{6.350e-4}{\AA}  \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Conversions use $1\,E_h/a_0 = 51.4220675\,$eV/\AA{} and
-$1\,a_0 = 0.5291772105\,$\AA. Throughout, $\fmax$ denotes the maximum-force
-criterion only.
-
-% =====================================================================
 \section{Sella baseline configurations}\label{app:sella}
-% =====================================================================
+Three axes: \textbf{\{cartesian$|$internal\} \{Eckart\}? \{tuned$|$untuned\}
+Hess.Freq.=$N$}. Headline baseline: cartesian + Eckart, untuned, Hess.Freq.=1
+(exact Hessian every step). Hess.Freq.=3 (library default) raises convergence at
+low noise (96.5 vs.\ 92.7\% @ \SI{10}{pm}) but lowers intended success at every
+noise (Fig.~\ref{fig:d1d3}) --- a stale Hessian yields more one-sided/failed
+outcomes, not unintended ones.
 
-The Sella baseline is specified on three axes:
-\textbf{Sella \{cartesian $|$ internal\} \{Eckart\}? \{tuned $|$ untuned\}
-Hess.Freq.=$N$}, where \emph{tuned} sets trust-radius hyperparameters
-$(\delta_0,\gamma)=(0.048,0)$ vs.\ \emph{untuned} library defaults $(0.1,0.4)$,
-and Hess.Freq.=$N$ recomputes the Hessian every $N$ steps (library default 3;
-project canonical 1). The strongest configuration on this benchmark, used as the
-headline baseline, is \emph{Sella cartesian Eckart untuned Hess.Freq.=1}.
-
-\paragraph{A cautionary tale: more convergence, worse chemistry.} Recomputing
-the Hessian only every third step (Hess.Freq.=3, the library default)
-\emph{raises} the convergence rate at low noise --- 96.5\% vs.\ 92.7\% at
-\SI{10}{pm}, at identical wall-time --- because the cheaper, smoother
-intermediate steps overshoot the strict threshold less often. But the intended
-success rate reverses the verdict at every noise level (Table~\ref{tab:d1d3}):
-the stale Hessian misjudges saddle character, so the extra ``convergences'' are
-unintended saddles the IRC rejects. This is a compact illustration of the
-paper's theme --- convergence is not chemistry --- and it justifies the
-every-step (d=1) baseline.
-
-\begin{table}[h]
-\centering\footnotesize
-\caption{Sella d=1 vs.\ d=3 (cartesian + Eckart untuned, $n=287$). d=3 wins
-convergence at low noise; d=1 wins intended success at every noise.}
-\label{tab:d1d3}
-\begin{tabular}{l cc cc}
-\toprule
-\textbf{noise} & \textbf{d=1 conv} & \textbf{d=3 conv} & \textbf{d=1 intended} & \textbf{d=3 intended} \\
-\midrule
-10\pm  & 92.7 & \textbf{96.5} & \textbf{89.2} & 88.5 \\
-30\pm  & 92.0 & \textbf{95.5} & \textbf{89.2} & 88.9 \\
-50\pm  & 88.2 & \textbf{92.0} & \textbf{87.5} & 87.1 \\
-100\pm & 70.7 & \textbf{72.8} & \textbf{72.5} & 70.4 \\
-150\pm & \textbf{54.0} & 50.5 & \textbf{49.8} & 45.3 \\
-200\pm & \textbf{27.2} & 23.3 & \textbf{23.3} & 22.0 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-% =====================================================================
-\section{Newton-polish: reaching below the plateau}\label{app:nr}
-% =====================================================================
-
-To confirm that Newton stepping --- not GAD --- reaches sub-plateau forces, we
-ran a strict Newton-Raphson polish (spectral-partitioned NR with a trust-radius
-cap, \texttt{nr\_max\_step\_norm}=0.3) at \SI{50}{pm}, $n=80$, against a loose
-variant that stops at $\tau=0.01$.
-
-\begin{table}[h]
-\centering\footnotesize
-\caption{NR-GAD polish at \SI{50}{pm}, $n=80$. Only the strict variant breaks
-the plateau, at the cost of some loose-threshold convergence (the overshoot
-tax).}
-\begin{tabular}{l cccc}
-\toprule
-\textbf{variant} & $\fmax<0.05$ & $\fmax<0.01$ & $\fmax<0.005$ & $\fmax<0.001$ \\
-\midrule
-loose (stops at 0.01)            & 70.0 & 46.2 & 0.0 & 0.0 \\
-strict (drives to $10^{-4}$)     & 73.8 & 45.0 & \textbf{31.2} & \textbf{1.2} \\
-\textit{baseline GAD $dt=0.007$ (2k steps)} & \textit{94.8} & \textit{85.7} & \textit{0.0} & \textit{0.0} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The trust-radius cap is essential: it prevents the $\mathbf{H}^{-1}\mathbf{F}$
-blow-up as an eigenvalue approaches zero near the saddle. Strict polish trades
-$\sim$40~pp of loose-threshold convergence for $\sim$31~pp of tight-threshold
-convergence --- worthwhile when sub-plateau accuracy is required and unnecessary
-at the canonical $\tau=0.01$, which is why the headline hybrid uses the
-non-overshooting switch.
-
-% =====================================================================
 \section{Reproducibility}\label{app:repro}
-% =====================================================================
-
-Data and code pointers (paths relative to the project root):
-
-\begin{itemize}[leftmargin=1.5em, itemsep=0.05em]
-\item Headline four-axis data: \texttt{analysis\_2026\_04\_29/master\_2026\_05\_11.csv}.
-\item Fresh 5-tier IRC outcomes (figures): \texttt{analysis\_2026\_04\_29/irc\_outcomes\_5tier\_test287.csv}.
-\item Threshold sweep: \texttt{analysis\_2026\_04\_29/threshold\_sweep\_2026\_05\_16.csv}.
-\item Figure generator: \texttt{scripts/build\_figures\_new.py} $\rightarrow$ \texttt{figures\_new/}.
-\item GAD dynamics, Eq.~\eqref{eq:gad}: \texttt{core/gad.py}.
-\item Eckart projection (Cartesian step): \texttt{projection/projection.py}.
-\item Hybrid switch: \texttt{search/hybrid\_gad\_eigfollownewton\_eckart.py}.
-\item IRC validation (Sella IRC + VF2 graph match): \texttt{search/irc\_validate.py}.
-\item IRC re-validation launchers: \texttt{scripts/run\_irc\_\{gad,hybrid,sella\}\_test287.slurm}.
+{\sloppy
+\begin{itemize}
+\item \textbf{Data (committed CSVs):} \texttt{master\_2026\_05\_16.csv},
+  \texttt{noise\_sweep\_with\_irc.csv}, \texttt{irc\_topo\_existing\_methods.csv},
+  \texttt{irc\_topo\_hybrid.csv}, \texttt{threshold\_sweep\_2026\_05\_16.csv},
+  \texttt{rmsd\_to\_known\_ts\_compare.csv}, \texttt{reactant\_0pm\_2026\_05\_16.csv},
+  \texttt{test\_summary\_full.csv} (per-sample).
+\item \textbf{Figures:} \texttt{make\_figs2.py}. \textbf{Code:} \texttt{core/gad.py}
+  (Eq.~\ref{eq:gad}), \texttt{projection/projection.py},
+  \texttt{search/hybrid\_gad\_eigfollownewton\_eckart.py},
+  \texttt{search/irc\_validate.py} (Sella IRC + VF2).
+\item Headline numbers are full $n=287$. The \SI{200}{pm} count illustration
+  (130/89/68; 68/101/116) is from the latest local re-scoring and may differ by a
+  few counts from the committed aggregate CSVs; McNemar significance is from the
+  per-sample paired analysis.
 \end{itemize}
+\par}
 
-Cells extracted from SLURM logs after wall-clock timeout ($n<287$) are noted at
-point of use; all headline numbers are full $n=287$.
-
-% =====================================================================
-\begin{thebibliography}{99}
-\small
-\bibitem{gad} W.~E and X.~Zhou, ``The gentlest ascent dynamics,''
-\emph{Nonlinearity} \textbf{24}, 1831--1842 (2011).
-\bibitem{dimer} G.~Henkelman and H.~J\'onsson, ``A dimer method for finding
-saddle points on high dimensional potential surfaces using only first
-derivatives,'' \emph{J. Chem. Phys.} \textbf{111}, 7010--7022 (1999).
-\bibitem{cerjanmiller} C.~J.~Cerjan and W.~H.~Miller, ``On finding transition
-states,'' \emph{J. Chem. Phys.} \textbf{75}, 2800--2806 (1981).
-\bibitem{banerjee} A.~Banerjee, N.~Adams, J.~Simons, and R.~Shepard, ``Search
-for stationary points on surfaces,'' \emph{J. Phys. Chem.} \textbf{89}, 52--57
-(1985).
-\bibitem{baker} J.~Baker, ``An algorithm for the location of transition
-states,'' \emph{J. Comput. Chem.} \textbf{7}, 385--395 (1986).
-\bibitem{sella2019} E.~D.~Hermes, K.~Sargsyan, H.~N.~Najm, and J.~Z\'ador,
-``Accelerated saddle point refinement through full exploitation of partial
-Hessian diagonalization,'' \emph{J. Chem. Theory Comput.} \textbf{15},
-6536--6549 (2019).
-\bibitem{sella2022} E.~D.~Hermes, K.~Sargsyan, H.~N.~Najm, and J.~Z\'ador,
-``Sella, an open-source automation-friendly molecular saddle point optimizer,''
-\emph{J. Chem. Theory Comput.} \textbf{18}, 6974--6988 (2022).
-\bibitem{transition1x} M.~Schreiner, A.~Bhowmik, T.~Vegge, J.~Busk, and
-O.~Winther, ``Transition1x --- a dataset for building generalizable reactive
-machine learning potentials,'' \emph{Sci. Data} \textbf{9}, 779 (2022).
-\bibitem{hip} A.~Burger, L.~Thiede, N.~R{\o}nne, \emph{et al.}, ``Shoot from the
-HIP: Hessian interatomic potentials without derivatives,'' arXiv:2509.21624
-(2025).
-\bibitem{newtonnet} E.~C.-Y.~Yuan, A.~Kumar, X.~Guan, \emph{et al.},
-``Analytical \emph{ab initio} Hessian from a deep learning potential for
-transition state optimization,'' \emph{Nat. Commun.} \textbf{15}, 8865 (2024);
-arXiv:2405.02247.
-\bibitem{lmhe} G.~Wu, C.-Y.~Yuan, K.~Hegazy, S.~M.~Blau, and T.~Head-Gordon,
-``Machine-learned leftmost Hessian eigenvectors for robust transition state
-finding,'' arXiv:2603.21323 (2026).
-\bibitem{kinbot} R.~Van~de~Vijver and J.~Z\'ador, ``KinBot: Automated stationary
-point search on potential energy surfaces,'' \emph{Comput. Phys. Commun.}
-\textbf{248}, 106947 (2020).
-\bibitem{fukui} K.~Fukui, ``The path of chemical reactions --- the IRC
-approach,'' \emph{Acc. Chem. Res.} \textbf{14}, 363--368 (1981).
+\begin{thebibliography}{99}\small
+\bibitem{gad} W.~E and X.~Zhou, \emph{Nonlinearity} \textbf{24}, 1831 (2011).
+\bibitem{dimer} G.~Henkelman and H.~J\'onsson, \emph{J. Chem. Phys.} \textbf{111}, 7010 (1999).
+\bibitem{cerjanmiller} C.~J.~Cerjan and W.~H.~Miller, \emph{J. Chem. Phys.} \textbf{75}, 2800 (1981).
+\bibitem{banerjee} A.~Banerjee, N.~Adams, J.~Simons, R.~Shepard, \emph{J. Phys. Chem.} \textbf{89}, 52 (1985).
+\bibitem{baker} J.~Baker, \emph{J. Comput. Chem.} \textbf{7}, 385 (1986).
+\bibitem{sella2019} E.~D.~Hermes, K.~Sargsyan, H.~N.~Najm, J.~Z\'ador, \emph{J. Chem. Theory Comput.} \textbf{15}, 6536 (2019).
+\bibitem{sella2022} E.~D.~Hermes, K.~Sargsyan, H.~N.~Najm, J.~Z\'ador, \emph{J. Chem. Theory Comput.} \textbf{18}, 6974 (2022).
+\bibitem{transition1x} M.~Schreiner, A.~Bhowmik, T.~Vegge, J.~Busk, O.~Winther, \emph{Sci. Data} \textbf{9}, 779 (2022).
+\bibitem{hip} A.~Burger, L.~Thiede, N.~R{\o}nne, \emph{et al.}, ``Shoot from the HIP: Hessian interatomic potentials without derivatives,'' arXiv:2509.21624 (2025).
+\bibitem{newtonnet} E.~C.-Y.~Yuan, \emph{et al.}, \emph{Nat. Commun.} \textbf{15}, 8865 (2024); arXiv:2405.02247.
+\bibitem{lmhe} G.~Wu, C.-Y.~Yuan, K.~Hegazy, S.~M.~Blau, T.~Head-Gordon, arXiv:2603.21323 (2026).
 \end{thebibliography}
 
 \end{document}
