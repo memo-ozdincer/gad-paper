@@ -4,8 +4,12 @@
 import os, matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt, numpy as np, pandas as pd
-CSV = "/tmp/gad/analysis_2026_04_29"
-OUT = "/sessions/determined-blissful-hamilton/mnt/outputs/paper_build/figures_new"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_CANDS = [os.path.join(_HERE, "..", "analysis_2026_04_29"),                                  # repo-relative (scripts/..)
+          "/sessions/determined-blissful-hamilton/mnt/new/gad-paper/analysis_2026_04_29",   # sandbox fallback
+          "/tmp/gad/analysis_2026_04_29"]
+CSV = next((c for c in _CANDS if os.path.exists(os.path.join(c, "reactant_0pm_2026_05_16.csv"))), _CANDS[0])
+OUT = os.environ.get("FIG_OUT", os.path.join(_HERE, "..", "figures_new"))  # repo: <root>/figures_new
 os.makedirs(OUT, exist_ok=True)
 C = {"GAD": "#1b9e77", "Hybrid": "#7570b3", "Sella": "#d95f02"}
 plt.rcParams.update({"font.size": 11, "axes.spines.top": False, "axes.spines.right": False,
@@ -44,4 +48,18 @@ ax[0].set(title="(a) median RMSD to true TS", ylabel="RMSD (Å)", xlabel="noise 
 ax[1].set(title="(b) 95th-percentile RMSD", ylabel="RMSD (Å)", xlabel="noise (pm)")
 ax[0].legend()
 save(fig, "fig_rmsd_vs_noise")
-print("wrote fig_reactant_scope, fig_rmsd_vs_noise to", OUT)
+
+# ---- fig_saddle_convergence (secondary metric: n_neg=1 & fmax<0.01 vs noise) ----
+CONV = {"GAD":    [89.2, 88.5, 85.4, 71.1, 55.1, 40.8],   # dt=0.003 (matches IRC config)
+        "Sella":  [92.7, 92.0, 88.2, 70.7, 54.0, 27.2],   # cart+Eckart untuned d=1
+        "Hybrid": [85.4, 85.0, 81.5, 66.9, 50.9, 33.1]}   # damped Eckart tr=0.05
+fig, ax = plt.subplots(figsize=(5.8, 4.4))
+for k in ["GAD", "Sella", "Hybrid"]:
+    ax.plot(NO, CONV[k], "-o", color=C[k], lw=2.2, ms=6, label=k)
+ax.set(xlabel="initial-guess noise (pm)",
+       ylabel=r"saddle-convergence rate (%)",
+       title=r"Secondary metric: $n_{neg}{=}1 \wedge F_{max}{<}0.01$",
+       ylim=(0, 100))
+ax.legend()
+save(fig, "fig_saddle_convergence")
+print("wrote fig_reactant_scope, fig_rmsd_vs_noise, fig_saddle_convergence to", OUT)

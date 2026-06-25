@@ -40,7 +40,7 @@ transition-state (TS) search is no longer the Hessian but the \emph{step}. We
 use the minimal choice --- first-order Gentlest Ascent Dynamics (GAD) on the
 lowest eigenvector of the Eckart-projected analytic Hessian, a Cartesian step
 with no trust region, quasi-Newton update, RFO, or eigenvector prediction. Our
-primary metric is the IRC-validated \emph{intended success rate} (forward and
+primary metric is the IRC-validated \emph{intended-reaction success rate} (forward and
 backward IRC must graph-match the intended reactant and product), on 287
 Transition1x test reactions from perturbed-saddle guesses (10--\SI{200}{pm}).
 
@@ -51,7 +51,7 @@ Transition1x test reactions from perturbed-saddle guesses (10--\SI{200}{pm}).
   from the strongest Sella baseline when the guess is good (McNemar $p\!\approx\!1.0$,
   $\le\!\SI{50}{pm}$) and pulls significantly ahead as it degrades
   ($p\!<\!10^{-4}$ by 150--\SI{200}{pm}; \textbf{+21.6~pp intended at \SI{200}{pm}},
-  45.3\% vs.\ 23.7\%). The same crossover holds for convergence and across
+  45.3\% vs.\ 23.7\%). The same crossover holds for saddle-convergence and across
   \fmax{} thresholds.
 \item \textbf{Mechanism (corrected).} \emph{No} method converges to an
   unintended (wrong-basin) saddle --- unintended $\approx 0/287$ for all three.
@@ -123,30 +123,34 @@ lowest eigenvector of the mass-weighted, Eckart-projected Hessian,
   Appendix~\ref{app:sella}).
 \end{itemize}
 
-\noindent\textbf{Metrics --- primary vs.\ secondary.}
+\noindent\textbf{Two metrics, kept deliberately separate.}
 \begin{itemize}
-\item \textbf{Convergence rate (secondary):} optimizer reached a first-order
-  saddle, $\nneg{=}1 \wedge \fmax{<}\tau$ (default $\tau=0.01\evA$; threshold
-  family in Appendix~\ref{app:crit}). Necessary but \emph{insufficient}.
-\item \textbf{Intended success rate (primary):} after optimization, follow
-  Sella's IRC \cite{sella2022} forward/backward and graph-match each endpoint
-  (Open~Babel connectivity + VF2) to the labelled reactant/product. Outcomes
-  (after \cite{newtonnet,lmhe}): \emph{intended} (both endpoints),
-  \emph{partially intended} (one), \emph{unintended} (valid saddle, other
-  reaction), \emph{no reaction} (collapsed to a minimum), \emph{TS error}
-  (no convergence).
+\item \textbf{Intended-reaction success rate (IRC) --- primary.} Did we find the
+  \emph{right} TS? After optimization, follow Sella's IRC \cite{sella2022}
+  forward/backward and graph-match each endpoint (Open~Babel connectivity + VF2)
+  to the labelled reactant/product. Outcomes (after \cite{newtonnet,lmhe}):
+  \emph{intended} (both endpoints match), \emph{partially intended} (one),
+  \emph{unintended} (valid saddle, other reaction), \emph{no reaction}
+  (collapsed to a minimum), \emph{TS error} (no convergence). This is the
+  chemically meaningful score and our headline metric.
+\item \textbf{Saddle-convergence rate --- secondary.} Did the optimizer reach
+  \emph{a} first-order saddle at all: $\nneg{=}1 \wedge \fmax{<}\tau$ (default
+  $\tau=0.01\evA$; threshold family in Appendix~\ref{app:crit}). A pure-geometry
+  check, necessary but \emph{insufficient} for the intended reaction; reported
+  separately in Section~\ref{sec:fmax}, not alongside the primary metric.
 \end{itemize}
 
 % =====================================================================
 \section{Results}
 % =====================================================================
-\subsection{Primary: intended success rate crosses over with guess quality}\label{sec:primary}
+\subsection{Primary result: intended-reaction success (IRC) crosses over with guess quality}\label{sec:primary}
 
 \begin{figure}[H]\centering
-\includegraphics[width=0.93\textwidth]{figures_new/fig_intended_success.pdf}
-\caption{\textbf{Primary (a) and secondary (b) axes vs.\ noise}, $n=287$.
-Methods coincide at low noise; GAD and the hybrid retain far more intended
-reactions as the guess degrades.}
+\includegraphics[width=0.72\textwidth]{figures_new/fig_intended_success_single.pdf}
+\caption{\textbf{Primary metric: intended-reaction success rate (IRC) vs.\
+initial-guess noise}, $n=287$. Methods coincide at low noise; GAD and the hybrid
+retain far more intended reactions as the guess degrades.
+(Saddle-convergence is shown separately in Fig.~\ref{fig:conv}.)}
 \label{fig:primary}
 \end{figure}
 
@@ -161,34 +165,29 @@ significant at \SI{150}{pm} ($p{=}3.8\!\times\!10^{-5}$) and \SI{200}{pm}
 \end{figure}
 
 \begin{itemize}
-\item \textbf{Crossover.} Tie at low noise (intended 88--89\% at \SI{10}{pm};
-  Sella even leads on raw \emph{convergence}, 92.7 vs.\ 89.2\%); GAD pulls ahead
-  with degradation: $\Delta$intended $=+3.9,+11.5,+21.6$~pp at 100/150/\SI{200}{pm}
-  (Fig.~\ref{fig:delta}, Table~\ref{tab:headline}).
+\item \textbf{Crossover.} Tie at low noise (intended 88--89\% at \SI{10}{pm});
+  GAD pulls ahead with degradation: $\Delta$intended $=+3.9,+11.5,+21.6$~pp at
+  100/150/\SI{200}{pm} (Fig.~\ref{fig:delta}, Table~\ref{tab:headline}).
 \item \textbf{Significance.} McNemar on paired per-sample intended outcomes:
   n.s.\ at $\le\!\SI{50}{pm}$ ($p{=}1.0$), emerging at \SI{100}{pm} ($p{=}0.10$),
   highly significant at \SI{150}{pm} ($p{=}3.8\!\times\!10^{-5}$) and
-  \SI{200}{pm} ($p{=}1.7\!\times\!10^{-13}$). Same crossover on convergence and
-  across \fmax{} thresholds.
+  \SI{200}{pm} ($p{=}1.7\!\times\!10^{-13}$). The same crossover appears on
+  saddle-convergence and across \fmax{} thresholds (Section~\ref{sec:fmax}).
 \end{itemize}
 
 \begin{table}[H]\centering\small
-\caption{Intended success rate (primary) and convergence rate (secondary), \%,
-$\fmax<0.01$, $n=287$. Intended from the fresh per-sample IRC re-validation
-(GAD $dt{=}0.003$); Sella $=$ strongest baseline.}
+\caption{\textbf{Primary metric --- intended-reaction success rate (IRC), \%},
+$n=287$, from the fresh per-sample re-validation (GAD $dt{=}0.003$); Sella $=$
+strongest baseline. Saddle-convergence is reported separately in
+Table~\ref{tab:conv} (Section~\ref{sec:fmax}).}
 \label{tab:headline}
-\begin{tabular}{ll cccccc}
+\begin{tabular}{l cccccc}
 \toprule
-& & \textbf{10\pm} & \textbf{30\pm} & \textbf{50\pm} & \textbf{100\pm} & \textbf{150\pm} & \textbf{200\pm} \\
+\textbf{Intended success \%} & \textbf{10\pm} & \textbf{30\pm} & \textbf{50\pm} & \textbf{100\pm} & \textbf{150\pm} & \textbf{200\pm} \\
 \midrule
-\multirow{2}{*}{\textbf{Intended \%}}
- & GAD (ours)       & 88.2 & 88.9 & 87.1 & 76.7 & \textbf{61.3} & \textbf{45.3} \\
- & Sella (baseline) & 88.5 & 89.2 & 87.1 & 72.8 & 49.8 & 23.7 \\
- & $\Delta$ (pp)    & $-0.3$ & $-0.3$ & $0.0$ & \textbf{+3.9} & \textbf{+11.5} & \textbf{+21.6} \\
-\midrule
-\multirow{2}{*}{\textbf{Conv.\ \%}}
- & GAD (ours)       & 89.2 & 88.5 & 85.4 & 71.1 & 55.1 & 40.8 \\
- & Sella (baseline) & \textbf{92.7} & \textbf{92.0} & \textbf{88.2} & 70.7 & 54.0 & 27.2 \\
+GAD (ours)       & 88.2 & 88.9 & 87.1 & 76.7 & \textbf{61.3} & \textbf{45.3} \\
+Sella (baseline) & 88.5 & 89.2 & 87.1 & 72.8 & 49.8 & 23.7 \\
+$\Delta$ (pp)    & $-0.3$ & $-0.3$ & $0.0$ & \textbf{+3.9} & \textbf{+11.5} & \textbf{+21.6} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -256,8 +255,47 @@ overtakes the baseline from \SI{100}{pm} onward.}
 \label{fig:grouped}
 \end{figure}
 
-\subsection{Secondary: the \texorpdfstring{$\fmax$}{Fmax} plateau (and why it does not matter for chemistry)}\label{sec:fmax}
+\subsection{Secondary: saddle-convergence and the \texorpdfstring{$\fmax$}{Fmax} plateau}\label{sec:fmax}
 
+Saddle-convergence ($\nneg{=}1 \wedge \fmax{<}\tau$) asks only whether the
+optimizer reached \emph{a} first-order saddle, independent of which reaction it
+connects.
+
+\begin{itemize}
+\item \textbf{Crossover here too} (Fig.~\ref{fig:conv}, Table~\ref{tab:conv}). At
+  low noise Sella's Newton step crushes the force fastest, so it leads
+  saddle-convergence (92.7 vs.\ 89.2\% @ \SI{10}{pm}); GAD overtakes by
+  \SI{150}{pm} (55.1 vs.\ 54.0\%) and \SI{200}{pm} (40.8 vs.\ 27.2\%).
+\item \textbf{But convergence $\ne$ chemistry.} Sella's low-noise convergence
+  lead does \emph{not} convert into intended reactions
+  (Table~\ref{tab:headline}); the d=1/d=3 case makes this explicit
+  (Fig.~\ref{fig:d1d3}).
+\end{itemize}
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.6\textwidth]{figures_new/fig_saddle_convergence.pdf}
+\caption{\textbf{Secondary metric: saddle-convergence rate}
+($\nneg{=}1 \wedge \fmax{<}0.01$) vs.\ noise, $n=287$. Sella leads at low noise;
+GAD overtakes at high noise --- but convergence is not chemistry
+(cf.\ Fig.~\ref{fig:primary}).}
+\label{fig:conv}
+\end{figure}
+
+\begin{table}[H]\centering\small
+\caption{Saddle-convergence rate (\%, $\nneg{=}1\wedge\fmax{<}0.01$, $n=287$).}
+\label{tab:conv}
+\begin{tabular}{l cccccc}
+\toprule
+\textbf{Saddle-convergence \%} & \textbf{10\pm} & \textbf{30\pm} & \textbf{50\pm} & \textbf{100\pm} & \textbf{150\pm} & \textbf{200\pm} \\
+\midrule
+GAD (ours)       & 89.2 & 88.5 & 85.4 & 71.1 & \textbf{55.1} & \textbf{40.8} \\
+Sella (baseline) & \textbf{92.7} & \textbf{92.0} & \textbf{88.2} & 70.7 & 54.0 & 27.2 \\
+Hybrid (ours)    & 85.4 & 85.0 & 81.5 & 66.9 & 50.9 & 33.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{The $\fmax$ plateau.}
 \begin{itemize}
 \item \textbf{Plateau.} All GAD $dt$ collapse to 0\% at $\fmax<0.005$ at every
   noise; Sella's Newton step retains 24--34\% (low noise). Pure first-order
@@ -394,7 +432,7 @@ the GAD family needs a near-saddle guess.}
 
 \section{Full tables (all nine configurations, $\fmax<0.01$, $n=287$)}\label{app:fulltables}
 \begin{table}[H]\centering\footnotesize
-\caption{Intended success rate \% (top) and convergence rate \% (bottom), all
+\caption{Intended-reaction success \% (top) and saddle-convergence \% (bottom), all
 nine configurations, from the aggregate IRC sweep. Bold = column best. The three
 headline methods (GAD, Sella cart+Eckart untuned d=1, Hybrid damped) were
 independently re-validated per-sample (\texttt{FINDING\_IRC\_5TIER\_2026\_06\_23};
@@ -414,7 +452,7 @@ Sella cart+Eck untuned d=3    & 88.5 & 88.9 & 87.1 & 70.4 & 45.3 & 22.0 \\
 Hybrid damped Eckart tr=0.05  & \textbf{89.2} & 88.9 & \textbf{88.9} & 76.7 & 57.5 & 38.7 \\
 Hybrid undamped Eckart tr=0.05& 88.9 & 88.9 & 88.5 & 77.0 & 57.1 & 38.7 \\
 \midrule
-\textbf{Convergence \%} & & & & & & \\
+\textbf{Saddle-convergence \%} & & & & & & \\
 \midrule
 GAD $dt=0.003$ & 89.2 & 88.5 & 85.4 & 71.1 & 55.1 & 40.8 \\
 GAD $dt=0.005$ & 89.2 & 88.5 & 85.7 & 71.8 & 57.1 & 43.2 \\
